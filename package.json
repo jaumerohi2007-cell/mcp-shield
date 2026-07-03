@@ -1,0 +1,42 @@
+{
+  "name": "mcp-shield",
+  "version": "0.1.0",
+  "description": "Zero-trust security proxy and runtime firewall for MCP agents. Intercepts JSON-RPC 2.0 over stdio between MCP clients and servers.",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "mcp-shield": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "typecheck": "tsc --noEmit",
+    "test": "npm run build && node --test --test-force-exit \"tests/*.test.mjs\"",
+    "start": "node dist/index.js",
+    "dev": "node --loader ts-node/esm src/index.ts"
+  },
+  "keywords": [
+    "mcp",
+    "model-context-protocol",
+    "security",
+    "firewall",
+    "proxy",
+    "json-rpc"
+  ],
+  "license": "MIT",
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
+    "express": "^5.2.1",
+    "socket.io": "^4.8.3"
+  },
+  "devDependencies": {
+    "@types/express": "^5.0.6",
+    "@types/node": "^26.1.0",
+    "jsdom": "^29.1.1",
+    "socket.io-client": "^4.8.3",
+    "ts-node": "^10.9.2",
+    "typescript": "^6.0.3"
+  }
+}

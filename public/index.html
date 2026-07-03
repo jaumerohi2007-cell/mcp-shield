@@ -1,0 +1,120 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>MCP-Shield — Security Dashboard</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="/app.css" />
+  </head>
+  <body>
+    <div class="app">
+      <!-- Header ------------------------------------------------------------->
+      <header class="topbar">
+        <div class="brand">
+          <span class="brand-mark" aria-hidden="true">🛡️</span>
+          <div class="brand-text">
+            <h1>MCP&#8209;Shield</h1>
+            <p>Zero-trust runtime firewall</p>
+          </div>
+        </div>
+        <div class="conn" id="conn" data-state="disconnected">
+          <span class="conn-dot" aria-hidden="true"></span>
+          <span class="conn-label" id="conn-label">Connecting…</span>
+        </div>
+      </header>
+
+      <div class="layout">
+        <!-- Sidebar: stats ------------------------------------------------->
+        <aside class="sidebar">
+          <div class="stat-card" data-kind="total">
+            <span class="stat-label">Total requests</span>
+            <span class="stat-value" id="stat-total">0</span>
+          </div>
+          <div class="stat-card" data-kind="allowed">
+            <span class="stat-label">Allowed</span>
+            <span class="stat-value" id="stat-allowed">0</span>
+          </div>
+          <div class="stat-card" data-kind="blocked">
+            <span class="stat-label">Blocked attacks</span>
+            <span class="stat-value" id="stat-blocked">0</span>
+          </div>
+          <div class="stat-card" data-kind="modified">
+            <span class="stat-label">Modified</span>
+            <span class="stat-value" id="stat-modified">0</span>
+          </div>
+          <div class="stat-card pending-card" data-kind="pending" id="pending-card">
+            <span class="stat-label">Pending approval</span>
+            <span class="stat-value" id="stat-pending">0</span>
+          </div>
+          <div class="sidebar-foot">
+            <p>Requests flagged <strong>ask</strong> are held here until you decide. No verdict in 120&nbsp;s auto-denies.</p>
+          </div>
+        </aside>
+
+        <!-- Main feed ------------------------------------------------------>
+        <main class="feed-panel">
+          <div class="feed-head">
+            <h2>Live activity</h2>
+            <button class="ghost-btn" id="clear-feed" type="button">Clear</button>
+          </div>
+          <ul class="feed" id="feed" aria-live="polite"></ul>
+          <div class="feed-empty" id="feed-empty">
+            <p>Waiting for JSON-RPC traffic…</p>
+            <span>Every tool call the shield inspects appears here.</span>
+          </div>
+        </main>
+      </div>
+    </div>
+
+    <!-- Approval modal ----------------------------------------------------->
+    <div class="modal-overlay" id="modal-overlay" hidden>
+      <div class="modal" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+        <div class="modal-head">
+          <div class="modal-badge" id="modal-badge">Approval required</div>
+          <div class="modal-countdown" id="modal-countdown" title="Time left before auto-deny">120s</div>
+        </div>
+        <h2 id="modal-title">Manual authorization</h2>
+
+        <div class="modal-rule" id="modal-rule">
+          <span class="modal-rule-label">Triggered rule</span>
+          <span class="modal-rule-name" id="modal-rule-name">—</span>
+          <code class="modal-rule-reason" id="modal-rule-reason"></code>
+        </div>
+
+        <div class="modal-field">
+          <span class="modal-field-label">Tool</span>
+          <code class="modal-tool" id="modal-tool">—</code>
+        </div>
+
+        <div class="modal-field">
+          <div class="modal-field-row">
+            <span class="modal-field-label">Arguments</span>
+            <span class="modal-hint">Edit before approving to forward modified arguments</span>
+          </div>
+          <textarea id="modal-args" class="modal-args" spellcheck="false" rows="8"></textarea>
+          <div class="modal-error" id="modal-error" hidden></div>
+        </div>
+
+        <div class="modal-actions">
+          <button class="btn btn-deny" id="btn-deny" type="button">Deny</button>
+          <div class="modal-actions-right">
+            <button class="btn btn-reset" id="btn-reset" type="button" title="Restore original arguments">Reset</button>
+            <button class="btn btn-approve" id="btn-approve" type="button">Approve</button>
+          </div>
+        </div>
+
+        <div class="modal-queue" id="modal-queue" hidden></div>
+      </div>
+    </div>
+
+    <!-- Socket.io client is served by the dashboard server itself. -->
+    <script src="/socket.io/socket.io.js"></script>
+    <script src="/app.js"></script>
+  </body>
+</html>
