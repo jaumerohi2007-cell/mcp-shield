@@ -56,7 +56,7 @@ npm install -g mcp-shield
 
 ---
 
-## 💻 Usage
+## 💻 Usage & Connection to Claude Code
 
 Wrap any target MCP server command using the `mcp-shield` executable:
 
@@ -64,21 +64,44 @@ Wrap any target MCP server command using the `mcp-shield` executable:
 mcp-shield --port 3000 -- <target-command> [target-args...]
 ```
 
-### Examples
+### How to connect it to Claude Code (Three Options)
 
-#### Wrapping a generic MCP server
+#### Option 1: Automatic Registration (Recommended)
+You can let MCP-Shield automatically register itself inside your global Claude Code settings using the `register` command:
 ```bash
-mcp-shield --port 3000 -- npx -y @modelcontextprotocol/server-everything
+mcp-shield register -- npx -y @modelcontextprotocol/server-everything
+```
+This automatically handles configuration path setups without using Claude's CLI.
+
+#### Option 2: Claude Code CLI (Default Port 3000)
+If you want to use Claude's own command line, run the following command (avoid custom port flags to prevent Claude CLI parsing conflicts):
+```bash
+claude mcp add shield mcp-shield -- npx -y @modelcontextprotocol/server-everything
 ```
 
-#### Wrapping filesystem server
-```bash
-mcp-shield --port 3000 -- npx -y @modelcontextprotocol/server-filesystem /path/to/workspace
+#### Option 3: Team Shared Config (`.mcp.json`)
+The best practice for engineering teams is to save the configuration directly in the project's root folder as a `.mcp.json` file and commit it to Git. All developers working on the repository will be protected automatically when they start Claude Code in that folder:
+
+Create a file named `.mcp.json`:
+```json
+{
+  "mcpServers": {
+    "shield": {
+      "command": "mcp-shield",
+      "args": [
+        "--",
+        "npx",
+        "-y",
+        "@modelcontextprotocol/server-everything"
+      ]
+    }
+  }
+}
 ```
 
-Once running:
+Once connected:
 1. Open your browser at **`http://localhost:3000`** to view the live activity logs and pending approvals.
-2. Configure your client (e.g., Claude Code) to connect to `mcp-shield` on standard I/O.
+2. Ask Claude to execute any tool, and watch the traffic flow through the firewall.
 
 ---
 

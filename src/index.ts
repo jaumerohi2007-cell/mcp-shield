@@ -15,6 +15,9 @@
  */
 
 import { spawn } from 'node:child_process';
+import { readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
+import { homedir } from 'node:os';
+import path from 'node:path';
 import process from 'node:process';
 
 import { Firewall, screenClientLine } from './security/firewall.js';
@@ -90,6 +93,131 @@ function parseCliArgs(argv: string[]): CliOptions {
   }
 
   return { port, targetCommand, targetArgs };
+}
+
+// ---------------------------------------------------------------------------
+// `mcp-shield register` — write the shield entry into the Claude MCP config
+// ---------------------------------------------------------------------------
+
+const REGISTER_USAGE = 'usage: mcp-shield register [--local] -- <target-command> [target-args...]';
+
+/**
+ * Registers the proxy in Claude's MCP config so users don't have to hand-edit
+ * JSON or fight CLI quoting. Global scope writes ~/.claude.json; --local (or
+ * --project) writes .mcp.json in the current directory instead.
+ */
+async function runRegisterCommand(args: string[]): Promise<void> {
+  const sepIndex = args.indexOf('--');
+  const flags = sepIndex === -1 ? args : args.slice(0, sepIndex);
+  const target = sepIndex === -1 ? [] : args.slice(sepIndex + 1);
+
+  let local = false;
+  for (const flag of flags) {
+    if (flag === '--local' || flag === '--project') {
+      local = true;
+    } else {
+      fail(`unknown option: ${flag}\n${REGISTER_USAGE}`);
+    }
+  }
+  if (target.length === 0) {
+    fail(`missing target command after "--".\n${REGISTER_USAGE}`);
+  }
+
+  const configPath = local
+    ? path.join(process.cwd(), '.mcp.json')
+    : path.join(homedir(), '.claude.json');
+
+  // ~/.claude.json holds the user's entire Claude Code state, not just MCP
+  // servers — anything unreadable or unparseable must abort untouched rather
+  // than get clobbered with a fresh skeleton.
+  let raw: string | null = null;
+  try {
+    raw = await readFile(configPath, 'utf8');
+  } catch (err) {
+    if ((err as NodeJS.ErrnoException).code !== 'ENOENT') {
+      fail(`cannot read ${configPath}: ${err instanceof Error ? err.message : String(err)}`);
+    }
+  }
+
+  let config: Record<string, unknown> = { mcpServers: {} };
+  if (raw !== null) {
+    let parsed: unknown;
+    try {
+      parsed = JSON.parse(raw);
+    } catch (err) {
+      fail(`${configPath} is not valid JSON — fix or remove it, then retry: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    if (typeof parsed !== 'object' || parsed === null || Array.isArray(parsed)) {
+      fail(`${configPath} does not contain a JSON object at the top level`);
+    }
+    config = parsed as Record<string, unknown>;
+  }
+
+  const existingServers = config['mcpServers'];
+  const servers: Record<string, unknown> =
+    typeof existingServers === 'object' && existingServers !== null && !Array.isArray(existingServers)
+      ? (existingServers as Record<string, unknown>)
+      : {};
+  config['mcpServers'] = servers;
+  servers['shield'] = { command: 'mcp-shield', args: ['--', ...target] };
+
+  // An in-place writeFile truncates before it streams, so a crash or Ctrl-C
+  // mid-write would destroy the very state this command promises to keep
+  // intact. Write a sibling temp file and rename it over the target instead —
+  // the swap is atomic on POSIX. realpath first, so an intentionally
+  // symlinked config keeps working: the rename lands on the link's target
+  // rather than replacing the link with a regular file.
+  let destPath = configPath;
+  try {
+    destPath = await realpath(configPath);
+  } catch {
+    // Fresh file (ENOENT): rename straight to the literal path.
+  }
+  const tmpPath = `${destPath}.${process.pid}.tmp`;
+  try {
+    await writeFile(tmpPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
+    await rename(tmpPath, destPath);
+  } catch (err) {
+    await rm(tmpPath, { force: true }).catch(() => undefined);
+    fail(`cannot write ${destPath}: ${err instanceof Error ? err.message : String(err)}`);
+  }
+
+  const message = `[mcp-shield] Successfully registered "shield" server in ${configPath}. Please restart Claude Code to apply changes.`;
+  const line = process.stderr.isTTY ? `\x1b[32m${message}\x1b[0m\n` : `${message}\n`;
+  // Wait for the write callback: stderr on a pipe is async, and process.exit
+  // right after would truncate the one line of feedback this command produces.
+  await new Promise<void>((resolve) => {
+    process.stderr.write(line, () => resolve());
+  });
+}
+
+// ---------------------------------------------------------------------------
+// Command dispatch — before any proxy subsystem initializes, so a proxy-only
+// startup failure (e.g. a poisoned rules cache making Firewall.create throw)
+// can never take `login` or `register` down with it
+// ---------------------------------------------------------------------------
+
+const rawArgs = process.argv.slice(2);
+
+// ── `mcp-shield login` ──────────────────────────────────────────────────────
+// Dedicated command: runs the SSO loopback flow, writes ~/.mcp-shield/session.json
+// and exits. No MCP target server is spawned.
+if (rawArgs[0] === 'login') {
+  try {
+    await runCliLoginFlow();
+  } catch (err) {
+    fail(`Login failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  process.exit(0);
+}
+
+// ── `mcp-shield register` ───────────────────────────────────────────────────
+// Dedicated command: writes the "shield" proxy entry into the Claude MCP
+// config (global ~/.claude.json, or ./.mcp.json with --local/--project) and
+// exits. No MCP target server is spawned.
+if (rawArgs[0] === 'register') {
+  await runRegisterCommand(rawArgs.slice(1));
+  process.exit(0);
 }
 
 // ---------------------------------------------------------------------------
@@ -226,20 +354,6 @@ async function authorizeToolCall(request: McpToolCallRequest): Promise<Authoriza
 // ---------------------------------------------------------------------------
 // Startup
 // ---------------------------------------------------------------------------
-
-const rawArgs = process.argv.slice(2);
-
-// ── `mcp-shield login` ──────────────────────────────────────────────────────
-// Dedicated command: runs the SSO loopback flow, writes ~/.mcp-shield/session.json
-// and exits. No MCP target server is spawned.
-if (rawArgs[0] === 'login') {
-  try {
-    await runCliLoginFlow();
-  } catch (err) {
-    fail(`Login failed: ${err instanceof Error ? err.message : String(err)}`);
-  }
-  process.exit(0);
-}
 
 const options = parseCliArgs(rawArgs);
 

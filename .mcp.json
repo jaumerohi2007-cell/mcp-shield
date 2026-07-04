@@ -1,0 +1,15 @@
+{
+  "mcpServers": {
+    "shield": {
+      "command": "/home/jroig/.npm-global/bin/mcp-shield",
+      "args": [
+        "--port",
+        "3000",
+        "--",
+        "npx",
+        "-y",
+        "@modelcontextprotocol/server-everything"
+      ]
+    }
+  }
+}
