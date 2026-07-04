@@ -18,6 +18,9 @@ import { spawn } from 'node:child_process';
 import process from 'node:process';
 
 import { Firewall, screenClientLine } from './security/firewall.js';
+import { hasSession, runCliLoginFlow } from './enterprise/auth.js';
+import { tryStartEnterpriseSync } from './enterprise/ruleSync.js';
+import { tryStartEnterpriseTelemetry, type TelemetryManager } from './enterprise/telemetry.js';
 import { sanitizeServerMessage } from './security/sanitizer.js';
 import { startDashboardServer, type DashboardServer } from './server/dashboardServer.js';
 import {
@@ -156,11 +159,14 @@ function createSequentialQueue(label: string): (task: () => Promise<void>) => vo
 // Security hooks — firewall, sanitizer, and manual approval (Phases 3 & 4)
 // ---------------------------------------------------------------------------
 
-const firewall = new Firewall();
+const firewall = await Firewall.create();
 
 // Set once the dashboard is up. null means no dashboard (startup failed), in
 // which case an 'ask' verdict falls back to failing closed.
 let dashboard: DashboardServer | null = null;
+
+// null when no Enterprise session is active — telemetry calls are no-ops.
+let telemetry: TelemetryManager | null = null;
 
 type AuthorizationDecision =
   | { action: 'forward'; viaApproval?: boolean }
@@ -221,7 +227,21 @@ async function authorizeToolCall(request: McpToolCallRequest): Promise<Authoriza
 // Startup
 // ---------------------------------------------------------------------------
 
-const options = parseCliArgs(process.argv.slice(2));
+const rawArgs = process.argv.slice(2);
+
+// ── `mcp-shield login` ──────────────────────────────────────────────────────
+// Dedicated command: runs the SSO loopback flow, writes ~/.mcp-shield/session.json
+// and exits. No MCP target server is spawned.
+if (rawArgs[0] === 'login') {
+  try {
+    await runCliLoginFlow();
+  } catch (err) {
+    fail(`Login failed: ${err instanceof Error ? err.message : String(err)}`);
+  }
+  process.exit(0);
+}
+
+const options = parseCliArgs(rawArgs);
 
 // Start the dashboard first so the approval queue exists before any traffic
 // flows. A startup failure is non-fatal: the proxy still firewalls and
@@ -230,6 +250,16 @@ try {
   dashboard = await startDashboardServer(options.port, { log });
 } catch (err) {
   log(`dashboard failed to start: ${err instanceof Error ? err.message : String(err)} — 'ask' will fail closed`);
+}
+
+// Enterprise features are gated on an active session. A missing or invalid
+// session file means the developer is using the free local-first tier — we
+// print a one-time hint and continue without cloud features.
+if (await hasSession()) {
+  await tryStartEnterpriseSync((rules) => { firewall.reloadRules(rules); });
+  telemetry = await tryStartEnterpriseTelemetry();
+} else {
+  log('Running in local-first mode. To enable Enterprise security policy syncing and audit logging, run "mcp-shield login".');
 }
 
 log(`spawning target server: ${options.targetCommand} ${options.targetArgs.join(' ')}`.trimEnd());
@@ -362,6 +392,13 @@ async function handleClientLine(line: string): Promise<void> {
     // (non-approval) decisions produce an activity event.
     if (decision.action === 'block') {
       log(`BLOCKED tools/call "${message.params.name}" (rule: ${decision.ruleName})`);
+      telemetry?.record({
+        tool: message.params.name,
+        arguments: message.params.arguments,
+        verdict: 'blocked',
+        triggered_rule_name: decision.ruleName,
+        sanitized_output_detected: false,
+      });
       if (!decision.viaApproval) {
         emitActivity({
           status: 'blocked',
@@ -377,6 +414,12 @@ async function handleClientLine(line: string): Promise<void> {
 
     if (decision.action === 'forward-modified') {
       log(`MODIFIED tools/call "${message.params.name}" forwarded`);
+      telemetry?.record({
+        tool: message.params.name,
+        arguments: decision.message.params.arguments,
+        verdict: 'modified',
+        sanitized_output_detected: false,
+      });
       // forward-modified only ever comes from the approval flow (viaApproval),
       // so request_resolved already covers it — no activity event here.
       writeToServer(JSON.stringify(decision.message));
@@ -384,6 +427,12 @@ async function handleClientLine(line: string): Promise<void> {
     }
 
     log(`ALLOWED tools/call "${message.params.name}"`);
+    telemetry?.record({
+      tool: message.params.name,
+      arguments: message.params.arguments,
+      verdict: 'allowed',
+      sanitized_output_detected: false,
+    });
     if (!decision.viaApproval) {
       emitActivity({
         status: 'allowed',
@@ -422,6 +471,11 @@ async function handleServerLine(line: string): Promise<void> {
   const { message, modified, detections } = sanitizeServerMessage(parsed);
   if (modified) {
     log(`NEUTRALIZED prompt injection in server output (${detections.join(', ')})`);
+    telemetry?.record({
+      tool: 'server-output',
+      verdict: 'modified',
+      sanitized_output_detected: true,
+    });
   }
   // Canonical re-serialization: the client receives exactly the object the
   // sanitizer judged, closing duplicate-key differentials in this direction too.

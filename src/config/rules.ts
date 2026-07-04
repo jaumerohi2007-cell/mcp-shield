@@ -7,7 +7,12 @@
  * A tools/call that no rule claims is forwarded untouched.
  */
 
+import * as fs from 'node:fs/promises';
+import * as os from 'node:os';
+import * as path from 'node:path';
 import process from 'node:process';
+
+export const CACHE_PATH = path.join(os.homedir(), '.mcp-shield', 'rules.cache.json');
 
 export type RuleAction = 'allow' | 'block' | 'ask';
 
@@ -29,6 +34,69 @@ export interface SecurityRule {
   /** No condition means the rule matches every call to that tool. */
   condition?: RuleCondition;
 }
+
+// ---------------------------------------------------------------------------
+// Runtime validation (for cloud-fetched rules)
+// ---------------------------------------------------------------------------
+
+function isRuleAction(v: string): v is RuleAction {
+  return v === 'allow' || v === 'block' || v === 'ask';
+}
+
+function isConditionOperator(v: string): v is ConditionOperator {
+  return v === 'contains' || v === 'regex' || v === 'outside_dir';
+}
+
+export function isSecurityRule(v: unknown): v is SecurityRule {
+  if (typeof v !== 'object' || v === null) return false;
+  const r = v as Record<string, unknown>;
+  const id = r['id'];
+  const name = r['name'];
+  const tool = r['tool'];
+  const action = r['action'];
+  if (typeof id !== 'string' || typeof name !== 'string' || typeof tool !== 'string') return false;
+  if (typeof action !== 'string' || !isRuleAction(action)) return false;
+  const condition = r['condition'];
+  if (condition !== undefined && condition !== null) {
+    if (typeof condition !== 'object') return false;
+    const c = condition as Record<string, unknown>;
+    const field = c['field'];
+    const operator = c['operator'];
+    const value = c['value'];
+    if (typeof field !== 'string') return false;
+    if (typeof operator !== 'string' || !isConditionOperator(operator)) return false;
+    if (typeof value !== 'string') return false;
+  }
+  return true;
+}
+
+// ---------------------------------------------------------------------------
+// Cache loading — returns null on any failure (caller falls back to defaults)
+// ---------------------------------------------------------------------------
+
+export async function loadCachedRules(): Promise<SecurityRule[] | null> {
+  let raw: string;
+  try {
+    raw = await fs.readFile(CACHE_PATH, 'utf-8');
+  } catch {
+    return null;
+  }
+  let parsed: unknown;
+  try {
+    parsed = JSON.parse(raw);
+  } catch {
+    return null;
+  }
+  if (typeof parsed !== 'object' || parsed === null) return null;
+  const obj = parsed as Record<string, unknown>;
+  const rules = obj['rules'];
+  if (!Array.isArray(rules) || !rules.every(isSecurityRule)) return null;
+  return rules as SecurityRule[];
+}
+
+// ---------------------------------------------------------------------------
+// Default rule set
+// ---------------------------------------------------------------------------
 
 export const defaultRules: SecurityRule[] = [
   // Block high-risk commands entirely.

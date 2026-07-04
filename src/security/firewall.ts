@@ -25,7 +25,7 @@
 
 import path from 'node:path';
 
-import { defaultRules, type RuleCondition, type SecurityRule } from '../config/rules.js';
+import { defaultRules, loadCachedRules, type RuleCondition, type SecurityRule } from '../config/rules.js';
 import {
   createAccessDeniedResponse,
   createErrorResponse,
@@ -48,24 +48,29 @@ export type FirewallVerdict =
   | { action: 'block' | 'ask'; rule: SecurityRule; reason: string };
 
 export class Firewall {
-  private readonly rules: SecurityRule[];
-  private readonly compiledRegexes = new Map<string, RegExp>();
+  private rules: SecurityRule[];
+  private compiledRegexes: Map<string, RegExp>;
 
   constructor(rules: SecurityRule[] = defaultRules) {
+    this.compiledRegexes = this.compileRules(rules);
     this.rules = rules;
-    // Compile every regex up front: a rule that cannot be enforced must fail
-    // the startup, not silently stop protecting.
-    for (const rule of rules) {
-      if (rule.condition?.operator === 'regex') {
-        try {
-          this.compiledRegexes.set(rule.id, new RegExp(rule.condition.value, 'i'));
-        } catch (err) {
-          throw new Error(
-            `invalid regex in security rule "${rule.id}": ${err instanceof Error ? err.message : String(err)}`,
-          );
-        }
-      }
-    }
+  }
+
+  /** Loads from `~/.mcp-shield/rules.cache.json` if available, falls back to default rules. */
+  static async create(): Promise<Firewall> {
+    const cached = await loadCachedRules();
+    return new Firewall(cached ?? defaultRules);
+  }
+
+  /**
+   * Hot-reloads the active rule set in place. Compiles regexes first so that a
+   * bad rule from the cloud leaves the existing policy intact and throws instead
+   * of silently disabling protection.
+   */
+  reloadRules(rules: SecurityRule[]): void {
+    const newRegexes = this.compileRules(rules);
+    this.compiledRegexes = newRegexes;
+    this.rules = rules;
   }
 
   /** First matching rule wins; a call no rule claims is allowed (the rules define the restrictions). */
@@ -89,6 +94,22 @@ export class Firewall {
       };
     }
     return { action: 'allow' };
+  }
+
+  private compileRules(rules: SecurityRule[]): Map<string, RegExp> {
+    const regexes = new Map<string, RegExp>();
+    for (const rule of rules) {
+      if (rule.condition?.operator === 'regex') {
+        try {
+          regexes.set(rule.id, new RegExp(rule.condition.value, 'i'));
+        } catch (err) {
+          throw new Error(
+            `invalid regex in security rule "${rule.id}": ${err instanceof Error ? err.message : String(err)}`,
+          );
+        }
+      }
+    }
+    return regexes;
   }
 
   private conditionMatches(rule: SecurityRule, condition: RuleCondition, request: McpToolCallRequest): boolean {
