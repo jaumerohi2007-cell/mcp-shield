@@ -46,47 +46,37 @@ If your agent reads a webpage, opens a file, or pulls a repository containing ma
 
 ## ⚙️ Installation
 
-To install globally on your machine:
+The easiest way to install MCP-Shield is to download the standalone executable for your operating system (Windows, macOS, or Linux) — no dependencies required!
 
+Alternatively, if you have Node.js installed, you can use npm:
 ```bash
 npm install -g mcp-shield
 ```
 
-*(For local development and testing, run `npm install` and `npm run build` in the source repository).*
+*(For local development, run `npm install` and `npm run build:bin` in the source repository to generate the executables in the `bin/` folder).*
 
 ---
 
 ## 💻 Usage & Connection to Claude Code
 
-Wrap any target MCP server command using the `mcp-shield` executable:
+MCP-Shield wraps your existing MCP servers to protect them. We provide a **Zero-Friction Auto-Installer** to configure this for you automatically.
+
+### Option 1: Auto-Configuration (Recommended)
+If you already use Claude Desktop or Cursor, simply run the install command. MCP-Shield will automatically find your configuration file, wrap all your existing servers behind the firewall, and save the changes instantly.
 
 ```bash
-mcp-shield --port 3000 -- <target-command> [target-args...]
+mcp-shield install claude
+# or
+mcp-shield install cursor
 ```
 
-### How to connect it to Claude Code (Three Options)
+### Option 2: Manual Configuration
+If you prefer to configure it manually, you can wrap any target MCP server command using the `mcp-shield` executable in your `claude_desktop_config.json` or team `.mcp.json` file. Simply prepend `mcp-shield --` to the server's command:
 
-#### Option 1: Automatic Registration (Recommended)
-You can let MCP-Shield automatically register itself inside your global Claude Code settings using the `register` command:
-```bash
-mcp-shield register -- npx -y @modelcontextprotocol/server-everything
-```
-This automatically handles configuration path setups without using Claude's CLI.
-
-#### Option 2: Claude Code CLI (Default Port 3000)
-If you want to use Claude's own command line, run the following command (avoid custom port flags to prevent Claude CLI parsing conflicts):
-```bash
-claude mcp add shield mcp-shield -- npx -y @modelcontextprotocol/server-everything
-```
-
-#### Option 3: Team Shared Config (`.mcp.json`)
-The best practice for engineering teams is to save the configuration directly in the project's root folder as a `.mcp.json` file and commit it to Git. All developers working on the repository will be protected automatically when they start Claude Code in that folder:
-
-Create a file named `.mcp.json`:
 ```json
 {
   "mcpServers": {
-    "shield": {
+    "my-protected-server": {
       "command": "mcp-shield",
       "args": [
         "--",
@@ -101,7 +91,7 @@ Create a file named `.mcp.json`:
 
 Once connected:
 1. Open your browser at **`http://localhost:3000`** to view the live activity logs and pending approvals.
-2. Ask Claude to execute any tool, and watch the traffic flow through the firewall.
+2. Ask your AI agent to execute any tool, and watch the traffic flow through the firewall.
 
 ---
 
