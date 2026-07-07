@@ -22,7 +22,7 @@ import process from 'node:process';
 
 import { Firewall, screenClientLine } from './security/firewall.js';
 import { hasSession, runCliLoginFlow } from './enterprise/auth.js';
-import { runInstallCommand } from './install.js';
+import { runInstallCommand, runUninstallCommand } from './install.js';
 import { tryStartEnterpriseSync } from './enterprise/ruleSync.js';
 import { tryStartEnterpriseTelemetry, type TelemetryManager } from './enterprise/telemetry.js';
 import { sanitizeServerMessage } from './security/sanitizer.js';
@@ -226,6 +226,13 @@ async function main() {
   // Dedicated command: auto-configures Claude Desktop or Cursor to use the shield
   if (rawArgs[0] === 'install') {
     await runInstallCommand(rawArgs[1] || '');
+    process.exit(0);
+  }
+
+  // ── `mcp-shield uninstall` ──────────────────────────────────────────────────
+  // Dedicated command: reverts the auto-configuration
+  if (rawArgs[0] === 'uninstall') {
+    await runUninstallCommand(rawArgs[1] || '');
     process.exit(0);
   }
 
