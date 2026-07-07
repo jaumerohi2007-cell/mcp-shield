@@ -22,6 +22,7 @@ import process from 'node:process';
 
 import { Firewall, screenClientLine } from './security/firewall.js';
 import { hasSession, runCliLoginFlow } from './enterprise/auth.js';
+import { runInstallCommand } from './install.js';
 import { tryStartEnterpriseSync } from './enterprise/ruleSync.js';
 import { tryStartEnterpriseTelemetry, type TelemetryManager } from './enterprise/telemetry.js';
 import { sanitizeServerMessage } from './security/sanitizer.js';
@@ -199,26 +200,34 @@ async function runRegisterCommand(args: string[]): Promise<void> {
 
 const rawArgs = process.argv.slice(2);
 
-// ── `mcp-shield login` ──────────────────────────────────────────────────────
-// Dedicated command: runs the SSO loopback flow, writes ~/.mcp-shield/session.json
-// and exits. No MCP target server is spawned.
-if (rawArgs[0] === 'login') {
-  try {
-    await runCliLoginFlow();
-  } catch (err) {
-    fail(`Login failed: ${err instanceof Error ? err.message : String(err)}`);
+async function main() {
+  // ── `mcp-shield login` ──────────────────────────────────────────────────────
+  // Dedicated command: runs the SSO loopback flow, writes ~/.mcp-shield/session.json
+  // and exits. No MCP target server is spawned.
+  if (rawArgs[0] === 'login') {
+    try {
+      await runCliLoginFlow();
+    } catch (err) {
+      fail(`Login failed: ${err instanceof Error ? err.message : String(err)}`);
+    }
+    process.exit(0);
   }
-  process.exit(0);
-}
 
-// ── `mcp-shield register` ───────────────────────────────────────────────────
-// Dedicated command: writes the "shield" proxy entry into the Claude MCP
-// config (global ~/.claude.json, or ./.mcp.json with --local/--project) and
-// exits. No MCP target server is spawned.
-if (rawArgs[0] === 'register') {
-  await runRegisterCommand(rawArgs.slice(1));
-  process.exit(0);
-}
+  // ── `mcp-shield register` ───────────────────────────────────────────────────
+  // Dedicated command: writes the "shield" proxy entry into the Claude MCP
+  // config (global ~/.claude.json, or ./.mcp.json with --local/--project) and
+  // exits. No MCP target server is spawned.
+  if (rawArgs[0] === 'register') {
+    await runRegisterCommand(rawArgs.slice(1));
+    process.exit(0);
+  }
+
+  // ── `mcp-shield install` ────────────────────────────────────────────────────
+  // Dedicated command: auto-configures Claude Desktop or Cursor to use the shield
+  if (rawArgs[0] === 'install') {
+    await runInstallCommand(rawArgs[1] || '');
+    process.exit(0);
+  }
 
 // ---------------------------------------------------------------------------
 // Line-delimited JSON-RPC framing
@@ -690,3 +699,6 @@ for (const signal of ['SIGINT', 'SIGTERM'] as const) {
     armKillTimer();
   });
 }
+
+} // end of main()
+main().catch(err => fail(`Unhandled error: ${err instanceof Error ? err.message : String(err)}`));

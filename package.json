@@ -9,6 +9,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "build:bin": "esbuild src/index.ts --bundle --platform=node --target=node18 --format=cjs --outfile=dist/bundle.cjs && pkg dist/bundle.cjs --targets node18-win-x64,node18-macos-x64,node18-linux-x64 --out-path bin/",
     "typecheck": "tsc --noEmit",
     "test": "npm run build && node --test --test-force-exit \"tests/*.test.mjs\"",
     "start": "node dist/index.js",
@@ -34,7 +35,9 @@
   "devDependencies": {
     "@types/express": "^5.0.6",
     "@types/node": "^26.1.0",
+    "esbuild": "^0.28.1",
     "jsdom": "^29.1.1",
+    "pkg": "^5.8.1",
     "socket.io-client": "^4.8.3",
     "ts-node": "^10.9.2",
     "typescript": "^6.0.3"
