@@ -45,3 +45,25 @@ A: **No.** MCP-Shield includes a zero-friction uninstall command:
 mcp-shield uninstall claude
 ```
 This command automatically and atomically restores the configuration file (`claude_desktop_config.json` or Cursor equivalent) to its exact prior state, removing the proxy wrapper. It is completely safe to deploy and revert via centralized MDM tools.
+
+## 6. Reporting a Vulnerability
+
+If you believe you have found a security vulnerability in MCP-Shield (the client proxy, the standalone binaries, or `mcp-shield-server`), please report it **privately** to:
+
+**security@mcp-shield.com** (English and Spanish accepted)
+
+Please include, where possible:
+- The affected component and version (`mcp-shield --version` or the server release).
+- Steps to reproduce, a proof of concept, or the relevant configuration.
+- Your assessment of the impact (e.g., policy bypass, data egress, privilege escalation).
+
+### Our commitment (coordinated disclosure)
+
+- We will acknowledge your report within **2 business days**.
+- We will triage the issue, keep you informed of progress, and target a fix or mitigation for confirmed vulnerabilities within **90 days** (faster for critical issues affecting the policy engine or data-egress guarantees).
+- We ask that you do **not** disclose the issue publicly until a fix has been released and we have coordinated a disclosure timeline with you.
+- We are happy to credit researchers who report in good faith, unless you prefer to remain anonymous.
+
+Good-faith security research performed within these guidelines is welcome; we will not pursue action against researchers who respect user data and avoid service disruption while investigating.
+
+A machine-readable version of this policy is published as `SECURITY.txt` at the root of this repository, following [RFC 9116](https://www.rfc-editor.org/rfc/rfc9116).
