@@ -62,13 +62,27 @@ npm install -g mcp-shield
 MCP-Shield wraps your existing MCP servers to protect them. We provide a **Zero-Friction Auto-Installer** to configure this for you automatically.
 
 ### Option 1: Auto-Configuration (Recommended)
-If you already use Claude Desktop or Cursor, simply run the install command. MCP-Shield will automatically find your configuration file, wrap all your existing servers behind the firewall, and save the changes instantly.
+Run the install command with no arguments and MCP-Shield will probe every supported MCP client on your machine, wrap all their configured servers behind the firewall, and save the changes atomically:
 
 ```bash
-mcp-shield install claude
-# or
+mcp-shield install
+#   ✓ Detected Claude Desktop — shielded 3 server(s)
+#   ✓ Detected Cursor — shielded 2 server(s)
+#   - VS Code: not detected
+#   ...
+```
+
+Supported clients: **Claude Desktop** (`claude`), **Cursor** (`cursor`, `~/.cursor/mcp.json`), **VS Code** (`vscode`, native MCP `mcp.json`), **Windsurf** (`windsurf`) and **Claude Code** (`claude-code`, the project's `.mcp.json`). You can also target a single client explicitly:
+
+```bash
 mcp-shield install cursor
 ```
+
+Notes:
+* Wrapped entries reference the shield by **absolute path** (the running binary or `node` + entry script), so they keep working no matter what `PATH` your MCP client launches with — including after a one-shot `npx mcp-shield install`.
+* `claude-code` is **excluded from the no-argument sweep** on purpose: the project `.mcp.json` is a version-controlled, team-shared file, so wrapping it requires the explicit `mcp-shield install claude-code`.
+
+`mcp-shield uninstall` (with or without a client argument) reverts the exact same changes, restoring every wrapped server to its original command — including entries wrapped by older releases.
 
 ### Option 2: Manual Configuration
 If you prefer to configure it manually, you can wrap any target MCP server command using the `mcp-shield` executable in your `claude_desktop_config.json` or team `.mcp.json` file. Simply prepend `mcp-shield --` to the server's command:

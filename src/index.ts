@@ -223,16 +223,18 @@ async function main() {
   }
 
   // ── `mcp-shield install` ────────────────────────────────────────────────────
-  // Dedicated command: auto-configures Claude Desktop or Cursor to use the shield
+  // Dedicated command: wraps the servers of a known MCP client (claude, cursor,
+  // vscode, windsurf, claude-code) behind the shield. With no argument it
+  // auto-detects every client installed on this machine and shields them all.
   if (rawArgs[0] === 'install') {
-    await runInstallCommand(rawArgs[1] || '');
+    await runInstallCommand(rawArgs[1]);
     process.exit(0);
   }
 
   // ── `mcp-shield uninstall` ──────────────────────────────────────────────────
-  // Dedicated command: reverts the auto-configuration
+  // Dedicated command: reverts the auto-configuration (same auto-detect sweep)
   if (rawArgs[0] === 'uninstall') {
-    await runUninstallCommand(rawArgs[1] || '');
+    await runUninstallCommand(rawArgs[1]);
     process.exit(0);
   }
 
