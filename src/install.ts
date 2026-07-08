@@ -122,9 +122,10 @@ const SUPPORTED_IDS = CLIENTS.map((c) => c.id).join(', ');
  * the CLIENT's PATH at spawn time, which breaks under every mainstream
  * install channel: `npx mcp-shield install` leaves nothing on PATH once it
  * exits, GUI-launched clients on macOS inherit launchd's minimal PATH, and
- * Windows clients can't exec the npm .cmd shim without a shell.
+ * Windows clients can't exec the npm .cmd shim without a shell. Also used
+ * by `mcp-shield register`, which writes the same shape.
  */
-function shieldInvocation(): string[] {
+export function shieldInvocation(): string[] {
   // pkg standalone binary: the executable itself is the shield.
   if ((process as unknown as { pkg?: unknown }).pkg !== undefined) {
     return [process.execPath];

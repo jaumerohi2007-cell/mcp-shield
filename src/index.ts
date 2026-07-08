@@ -22,7 +22,7 @@ import process from 'node:process';
 
 import { Firewall, screenClientLine } from './security/firewall.js';
 import { hasSession, runCliLoginFlow } from './enterprise/auth.js';
-import { runInstallCommand, runUninstallCommand } from './install.js';
+import { runInstallCommand, runUninstallCommand, shieldInvocation } from './install.js';
 import { tryStartEnterpriseSync } from './enterprise/ruleSync.js';
 import { tryStartEnterpriseTelemetry, type TelemetryManager } from './enterprise/telemetry.js';
 import { sanitizeServerMessage } from './security/sanitizer.js';
@@ -160,7 +160,10 @@ async function runRegisterCommand(args: string[]): Promise<void> {
       ? (existingServers as Record<string, unknown>)
       : {};
   config['mcpServers'] = servers;
-  servers['shield'] = { command: 'mcp-shield', args: ['--', ...target] };
+  // Absolute invocation, never a bare "mcp-shield": the client resolves the
+  // command against ITS OWN PATH at spawn time (see shieldInvocation).
+  const invocation = shieldInvocation();
+  servers['shield'] = { command: invocation[0], args: [...invocation.slice(1), '--', ...target] };
 
   // An in-place writeFile truncates before it streams, so a crash or Ctrl-C
   // mid-write would destroy the very state this command promises to keep

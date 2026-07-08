@@ -20,6 +20,13 @@ import path from 'node:path';
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
 const entry = path.join(projectRoot, 'dist', 'index.js');
 
+// register writes the ABSOLUTE invocation of the running shield (never a
+// bare "mcp-shield" the client couldn't resolve): node binary + entry script.
+const shieldEntry = (...target) => ({
+  command: process.execPath,
+  args: [entry, '--', ...target],
+});
+
 const freshDir = () => mkdtemp(path.join(tmpdir(), 'shield-register-'));
 
 async function runRegister(args, { home, cwd = home }) {
@@ -54,10 +61,7 @@ test('register (global) creates ~/.claude.json with the shield entry', async () 
   const rawConfig = await readFile(path.join(home, '.claude.json'), 'utf8');
   assert.match(rawConfig, /^\{\n  "/, 'expected 2-space indentation');
   const config = JSON.parse(rawConfig);
-  assert.deepEqual(config.mcpServers.shield, {
-    command: 'mcp-shield',
-    args: ['--', 'npx', '-y', '@foo/server', '--flag'],
-  });
+  assert.deepEqual(config.mcpServers.shield, shieldEntry('npx', '-y', '@foo/server', '--flag'));
 });
 
 test('register (global) preserves unrelated config and overwrites a stale shield entry', async () => {
@@ -77,10 +81,7 @@ test('register (global) preserves unrelated config and overwrites a stale shield
   const config = JSON.parse(await readFile(configPath, 'utf8'));
   assert.equal(config.theme, 'dark');
   assert.deepEqual(config.mcpServers.other, { command: 'other-server', args: ['-x'] });
-  assert.deepEqual(config.mcpServers.shield, {
-    command: 'mcp-shield',
-    args: ['--', 'python', 'server.py'],
-  });
+  assert.deepEqual(config.mcpServers.shield, shieldEntry('python', 'server.py'));
 });
 
 test('register --local writes .mcp.json in the working directory, not the home config', async () => {
@@ -92,10 +93,7 @@ test('register --local writes .mcp.json in the working directory, not the home c
   assert.match(stderr, /Successfully registered "shield" server in .*\.mcp\.json/);
 
   const config = JSON.parse(await readFile(path.join(cwd, '.mcp.json'), 'utf8'));
-  assert.deepEqual(config.mcpServers.shield, {
-    command: 'mcp-shield',
-    args: ['--', 'node', 'srv.js'],
-  });
+  assert.deepEqual(config.mcpServers.shield, shieldEntry('node', 'srv.js'));
   await assert.rejects(readFile(path.join(home, '.claude.json')), 'home config must stay untouched');
 });
 
@@ -107,10 +105,7 @@ test('register --project is an alias for --local', async () => {
   assert.equal(code, 0);
 
   const config = JSON.parse(await readFile(path.join(cwd, '.mcp.json'), 'utf8'));
-  assert.deepEqual(config.mcpServers.shield, {
-    command: 'mcp-shield',
-    args: ['--', 'deno', 'run', 'srv.ts'],
-  });
+  assert.deepEqual(config.mcpServers.shield, shieldEntry('deno', 'run', 'srv.ts'));
 });
 
 test('register without a target command prints usage and exits non-zero', async () => {
@@ -159,7 +154,7 @@ test('register still works when the rules cache is poisoned with an uncompilable
   assert.match(stderr, /Successfully registered/);
 
   const config = JSON.parse(await readFile(path.join(home, '.claude.json'), 'utf8'));
-  assert.deepEqual(config.mcpServers.shield, { command: 'mcp-shield', args: ['--', 'npx', 'x'] });
+  assert.deepEqual(config.mcpServers.shield, shieldEntry('npx', 'x'));
 });
 
 test('register follows an intentionally symlinked config instead of replacing the link', async () => {
@@ -176,7 +171,7 @@ test('register follows an intentionally symlinked config instead of replacing th
   assert.equal(linkStat.isSymbolicLink(), true, 'the atomic-write rename must not replace the symlink');
   const config = JSON.parse(await readFile(realConfig, 'utf8'));
   assert.equal(config.theme, 'dark');
-  assert.deepEqual(config.mcpServers.shield, { command: 'mcp-shield', args: ['--', 'npx', 'x'] });
+  assert.deepEqual(config.mcpServers.shield, shieldEntry('npx', 'x'));
 });
 
 test('register repairs a non-object mcpServers value instead of crashing', async () => {
@@ -189,5 +184,5 @@ test('register repairs a non-object mcpServers value instead of crashing', async
 
   const config = JSON.parse(await readFile(configPath, 'utf8'));
   assert.equal(config.theme, 'dark');
-  assert.deepEqual(config.mcpServers.shield, { command: 'mcp-shield', args: ['--', 'npx', 'x'] });
+  assert.deepEqual(config.mcpServers.shield, shieldEntry('npx', 'x'));
 });
