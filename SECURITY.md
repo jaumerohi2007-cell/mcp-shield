@@ -50,7 +50,7 @@ This command automatically and atomically restores the configuration file (`clau
 
 If you believe you have found a security vulnerability in MCP-Shield (the client proxy, the standalone binaries, or `mcp-shield-server`), please report it **privately** to:
 
-**security@mcp-shield.com** (English and Spanish accepted)
+**[GitHub private vulnerability reporting](https://github.com/jaumerohi2007-cell/mcp-shield/security/advisories/new)** — open a draft security advisory on the public `mcp-shield` repository (English and Spanish accepted). This single channel covers both the client and `mcp-shield-server`.
 
 Please include, where possible:
 - The affected component and version (`mcp-shield --version` or the server release).
