@@ -6,8 +6,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { mkdtemp } from 'node:fs/promises';
 import { createServer as createNetServer } from 'node:net';
 import { once } from 'node:events';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -197,8 +199,13 @@ test('pending_approval carries the triggering rule reason for the modal', async 
 
 /** Spawn the proxy on an OS-assigned port and resolve once its dashboard port is known. */
 async function spawnProxy() {
+  // Isolated home: the proxy loads ~/.mcp-shield/rules.cache.json and
+  // session.json from the real home when they exist, which would swap in
+  // enterprise-synced rules and change which calls park as 'ask' here.
+  const home = await mkdtemp(path.join(tmpdir(), 'shield-e2e-'));
   const proxy = spawn('node', ['dist/index.js', '--port', '0', '--', 'node', 'tests/fixtures/echo-server.cjs'], {
     cwd: projectRoot,
+    env: { ...process.env, HOME: home, USERPROFILE: home },
     stdio: ['pipe', 'pipe', 'pipe'],
   });
 

@@ -5,6 +5,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { spawn } from 'node:child_process';
+import { mkdtemp } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 
@@ -12,6 +14,14 @@ import { Firewall, screenClientLine } from '../dist/security/firewall.js';
 import { NEUTRALIZED_MARKER, sanitizeServerMessage } from '../dist/security/sanitizer.js';
 
 const projectRoot = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..');
+
+// The spawned proxy loads ~/.mcp-shield/rules.cache.json (enterprise rule
+// sync) and session.json from the real home when they exist, which would
+// replace the built-in default rules this test asserts on. Point HOME and
+// USERPROFILE (what os.homedir() reads on POSIX/Windows) at a fresh temp dir
+// so e2e verdicts always come from the defaults.
+const isolatedHome = await mkdtemp(path.join(tmpdir(), 'shield-e2e-'));
+const isolatedEnv = { ...process.env, HOME: isolatedHome, USERPROFILE: isolatedHome };
 
 const toolCall = (name, args, id = 1) => ({
   jsonrpc: '2.0',
@@ -362,7 +372,7 @@ test('e2e: the proxy blocks destructive calls and forwards benign ones', async (
   const proxy = spawn(
     'node',
     ['dist/index.js', '--port', '0', '--', 'node', 'tests/fixtures/echo-server.cjs'],
-    { cwd: projectRoot, stdio: ['pipe', 'pipe', 'ignore'] },
+    { cwd: projectRoot, env: isolatedEnv, stdio: ['pipe', 'pipe', 'ignore'] },
   );
 
   const responses = [];
