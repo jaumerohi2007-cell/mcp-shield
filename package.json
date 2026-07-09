@@ -1,5 +1,6 @@
 {
-  "name": "mcpshield",
+  "name": "@jrooig/mcpshield",
+  "publishConfig": { "access": "public" },
   "version": "0.1.0",
   "description": "Zero-trust security proxy and runtime firewall for MCP agents. Intercepts JSON-RPC 2.0 over stdio between MCP clients and servers.",
   "type": "module",

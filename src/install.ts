@@ -120,7 +120,7 @@ const SUPPORTED_IDS = CLIENTS.map((c) => c.id).join(', ');
  * Command (+ leading args) that re-invokes the currently running mcp-shield
  * using absolute paths only. A bare "mcp-shield" would be resolved against
  * the CLIENT's PATH at spawn time, which breaks under every mainstream
- * install channel: `npx mcpshield install` leaves nothing on PATH once it
+ * install channel: `npx @jrooig/mcpshield install` leaves nothing on PATH once it
  * exits, GUI-launched clients on macOS inherit launchd's minimal PATH, and
  * Windows clients can't exec the npm .cmd shim without a shell. Also used
  * by `mcp-shield register`, which writes the same shape.
