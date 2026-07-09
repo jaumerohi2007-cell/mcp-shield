@@ -1,5 +1,5 @@
 {
-  "name": "mcp-shield",
+  "name": "mcpshield",
   "version": "0.1.0",
   "description": "Zero-trust security proxy and runtime firewall for MCP agents. Intercepts JSON-RPC 2.0 over stdio between MCP clients and servers.",
   "type": "module",
@@ -9,6 +9,7 @@
   },
   "scripts": {
     "build": "tsc",
+    "prepublishOnly": "npm run build",
     "build:bin": "esbuild src/index.ts --bundle --platform=node --target=node18 --format=cjs --outfile=dist/bundle.cjs && pkg dist/bundle.cjs --targets node18-win-x64,node18-macos-x64,node18-linux-x64 --out-path bin/",
     "typecheck": "tsc --noEmit",
     "test": "npm run build && node --test --test-force-exit \"tests/*.test.mjs\"",
@@ -24,6 +25,10 @@
     "json-rpc"
   ],
   "license": "MIT",
+  "repository": { "type": "git", "url": "git+https://github.com/jaumerohi2007-cell/mcp-shield.git" },
+  "homepage": "https://mcp-shield.dev",
+  "bugs": { "url": "https://github.com/jaumerohi2007-cell/mcp-shield/issues" },
+  "files": ["dist/**/*.js", "dist/**/*.d.ts", "README.md"],
   "engines": {
     "node": ">=18"
   },

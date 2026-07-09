@@ -79,7 +79,7 @@ mcp-shield install cursor
 ```
 
 Notes:
-* Wrapped entries reference the shield by **absolute path** (the running binary or `node` + entry script), so they keep working no matter what `PATH` your MCP client launches with — including after a one-shot `npx mcp-shield install`.
+* Wrapped entries reference the shield by **absolute path** (the running binary or `node` + entry script), so they keep working no matter what `PATH` your MCP client launches with — including after a one-shot `npx mcpshield install`.
 * `claude-code` is **excluded from the no-argument sweep** on purpose: the project `.mcp.json` is a version-controlled, team-shared file, so wrapping it requires the explicit `mcp-shield install claude-code`.
 
 `mcp-shield uninstall` (with or without a client argument) reverts the exact same changes, restoring every wrapped server to its original command — including entries wrapped by older releases.
