@@ -3,7 +3,7 @@ import * as path from 'node:path';
 import process from 'node:process';
 
 import { CACHE_PATH, isSecurityRule, type SecurityRule } from '../config/rules.js';
-import { getApiClient } from './apiClient.js';
+import { getApiClient, PaymentRequiredError } from './apiClient.js';
 
 const POLL_INTERVAL_MS = 5 * 60 * 1_000;
 
@@ -82,9 +82,16 @@ export async function tryStartEnterpriseSync(
     manager.startPolling();
     return manager;
   } catch (err) {
-    process.stderr.write(
-      `[mcp-shield] enterprise sync unavailable: ${err instanceof Error ? err.message : String(err)}\n`,
-    );
+    if (err instanceof PaymentRequiredError) {
+      process.stderr.write(
+        `[mcp-shield] Enterprise features are OFF — no active subscription or the trial has expired. ` +
+        `Subscribe in the admin console to enable centralized rules and audit. Running with local rules.\n`,
+      );
+    } else {
+      process.stderr.write(
+        `[mcp-shield] enterprise sync unavailable: ${err instanceof Error ? err.message : String(err)}\n`,
+      );
+    }
     return null;
   }
 }

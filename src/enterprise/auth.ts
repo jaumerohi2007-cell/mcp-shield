@@ -10,7 +10,11 @@ import process from 'node:process';
 // consistency with the existing validated schema.
 const SESSION_DIR = path.join(os.homedir(), '.mcp-shield');
 const SESSION_PATH = path.join(SESSION_DIR, 'session.json');
-const AUTH_URL = process.env['MCP_SHIELD_AUTH_URL'] ?? 'https://auth.mcp-shield.com/login';
+// El portal SSO vive en el MISMO servidor que la API (endpoint login-mock), así
+// que su URL se deriva de MCP_SHIELD_SERVER_URL: un solo host que configurar.
+// MCP_SHIELD_AUTH_URL sigue disponible como override explícito.
+const SERVER_URL = (process.env['MCP_SHIELD_SERVER_URL'] ?? 'https://mcp-shield-server.onrender.com').replace(/\/+$/, '');
+const AUTH_URL = process.env['MCP_SHIELD_AUTH_URL'] ?? `${SERVER_URL}/api/v1/auth/login-mock`;
 const CLIENT_ID = 'mcp_shield_cli';
 const LOOPBACK_START = 3009;
 const LOGIN_TIMEOUT_MS = 5 * 60 * 1_000;
@@ -178,6 +182,22 @@ export async function runCliLoginFlow(): Promise<void> {
       const parsedUrl = new URL(reqUrl, `http://localhost:${port}`);
       const token = parsedUrl.searchParams.get('token');
       const email = parsedUrl.searchParams.get('email') ?? '';
+      const errorParam = parsedUrl.searchParams.get('error');
+
+      // El servidor devuelve ?error=... cuando el login no puede completarse
+      // (p. ej. no existe un developer con ese email). Fallamos al instante con
+      // el mensaje en vez de esperar el timeout de 5 minutos.
+      if (errorParam) {
+        res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });
+        res.end(`Login failed: ${errorParam}`);
+        if (!settled) {
+          settled = true;
+          clearTimeout(timeoutHandle);
+          server.closeAllConnections();
+          server.close(() => reject(new Error(`Login failed: ${errorParam}`)));
+        }
+        return;
+      }
 
       if (!token) {
         res.writeHead(400, { 'Content-Type': 'text/plain; charset=utf-8' });

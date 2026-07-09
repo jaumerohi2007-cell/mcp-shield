@@ -2,7 +2,7 @@ import * as fs from 'node:fs/promises';
 import * as os from 'node:os';
 import * as path from 'node:path';
 
-const SERVER_URL = process.env['MCP_SHIELD_SERVER_URL'] ?? 'https://api.mcp-shield.com';
+const SERVER_URL = process.env['MCP_SHIELD_SERVER_URL'] ?? 'https://mcp-shield-server.onrender.com';
 const SESSION_PATH = path.join(os.homedir(), '.mcp-shield', 'session.json');
 const MAX_RETRIES = 3;
 const BASE_DELAY_MS = 1_000;
@@ -69,6 +69,15 @@ async function sleep(ms: number): Promise<void> {
   return new Promise(resolve => setTimeout(resolve, ms));
 }
 
+/** Lanzado cuando el servidor responde 402: la org no tiene suscripción/trial
+ * activo. Los callers lo distinguen para avisar en vez de fallar en silencio. */
+export class PaymentRequiredError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'PaymentRequiredError';
+  }
+}
+
 export class EnterpriseApiClient {
   readonly baseUrl: string;
   readonly email: string | undefined;
@@ -128,6 +137,12 @@ export class EnterpriseApiClient {
         return this.requestWithRetry<T>(endpoint, options, attempt + 1);
       }
       const text = await response.text().catch(() => '');
+      if (response.status === 402) {
+        throw new PaymentRequiredError(
+          `MCP-Shield Enterprise is inactive: no active subscription or the trial has expired (HTTP 402).` +
+          (text ? ` ${text}` : ''),
+        );
+      }
       throw new Error(
         `MCP-Shield: Server returned ${response.status} from ${url}` +
         (text ? `: ${text}` : ''),

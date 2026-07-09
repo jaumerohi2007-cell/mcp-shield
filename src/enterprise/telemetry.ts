@@ -3,7 +3,7 @@ import * as os from 'node:os';
 import * as path from 'node:path';
 import process from 'node:process';
 
-import { getApiClient } from './apiClient.js';
+import { getApiClient, PaymentRequiredError } from './apiClient.js';
 
 const QUEUE_PATH = path.join(os.homedir(), '.mcp-shield', 'telemetry.queue.json');
 const FLUSH_INTERVAL_MS = 10_000;
@@ -72,6 +72,7 @@ export class TelemetryManager {
   private readonly buffer: AuditEvent[] = [];
   private timer: NodeJS.Timeout | null = null;
   private flushing = false;
+  private warnedPaymentRequired = false;
 
   private constructor(email: string) {
     this.email = email;
@@ -135,7 +136,13 @@ export class TelemetryManager {
 
       // All events shipped: the queue file is now obsolete.
       await clearQueue();
-    } catch {
+    } catch (err) {
+      if (err instanceof PaymentRequiredError && !this.warnedPaymentRequired) {
+        this.warnedPaymentRequired = true;
+        process.stderr.write(
+          `[mcp-shield] Enterprise audit is OFF — no active subscription or the trial has expired.\n`,
+        );
+      }
       // Network/auth failure — persist what we just drained so it survives the
       // next flush attempt (old queue events remain on disk untouched).
       if (buffered.length > 0) {
