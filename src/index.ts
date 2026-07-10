@@ -402,6 +402,13 @@ const child = spawn(options.targetCommand, options.targetArgs, {
   // stdin/stdout piped (the protocol channel we intercept); stderr inherited
   // so the target server's own diagnostics stay visible on our stderr.
   stdio: ['pipe', 'pipe', 'inherit'],
+  // Windows: MCP servers are usually launched via npx/npm, which are .cmd shims
+  // that Node's spawn cannot exec directly (ENOENT) — without a shell the proxy
+  // fails to start any npx-based target on Windows ("Server disconnected"). The
+  // command/args come from the trusted client config, so there's no injection
+  // surface. (Args with spaces on Windows are a known shell edge; acceptable for
+  // the common npx/node/uvx cases.)
+  shell: process.platform === 'win32',
 });
 
 child.on('error', (err) => {
