@@ -1,7 +1,9 @@
 {
   "name": "@jrooig/mcpshield",
-  "publishConfig": { "access": "public" },
-  "version": "0.1.1",
+  "publishConfig": {
+    "access": "public"
+  },
+  "version": "0.1.2",
   "description": "Zero-trust security proxy and runtime firewall for MCP agents. Intercepts JSON-RPC 2.0 over stdio between MCP clients and servers.",
   "type": "module",
   "main": "dist/index.js",
@@ -26,10 +28,19 @@
     "json-rpc"
   ],
   "license": "MIT",
-  "repository": { "type": "git", "url": "git+https://github.com/jaumerohi2007-cell/mcp-shield.git" },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/jaumerohi2007-cell/mcp-shield.git"
+  },
   "homepage": "https://mcp-shield.dev",
-  "bugs": { "url": "https://github.com/jaumerohi2007-cell/mcp-shield/issues" },
-  "files": ["dist/**/*.js", "dist/**/*.d.ts", "README.md"],
+  "bugs": {
+    "url": "https://github.com/jaumerohi2007-cell/mcp-shield/issues"
+  },
+  "files": [
+    "dist/**/*.js",
+    "dist/**/*.d.ts",
+    "README.md"
+  ],
   "engines": {
     "node": ">=18"
   },
