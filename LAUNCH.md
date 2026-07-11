@@ -54,7 +54,7 @@ Key Features:
 - 🔒 100% Local & Privacy-focused: Runs entirely on localhost, no data sent to external clouds.
 
 You can install it globally via npm:
-npm install -g mcp-shield
+npm install -g @jrooig/mcpshield
 
 And wrap any server:
 mcp-shield --port 3000 -- npx -y @modelcontextprotocol/server-everything
@@ -96,7 +96,7 @@ It comes with a premium local dashboard (Express + Socket.io) where you can insp
 * **Tweet 4 (Link):**
 ```text
 Open-source, 100% local, and installs in seconds:
-📦 npm install -g mcp-shield
+📦 npm install -g @jrooig/mcpshield
 
 Star the repo on GitHub: https://github.com/jaumerohi2007-cell/mcp-shield 🛡️
 ```

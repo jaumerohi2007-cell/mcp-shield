@@ -1,6 +1,6 @@
 # MCP-Shield 🛡️
 
-[![NPM Version](https://img.shields.io/npm/v/mcp-shield.svg)](https://www.npmjs.com/package/mcp-shield)
+[![NPM Version](https://img.shields.io/npm/v/@jrooig/mcpshield.svg)](https://www.npmjs.com/package/@jrooig/mcpshield)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 > **Zero-trust security proxy, prompt injection sanitizer, and interactive runtime firewall for Model Context Protocol (MCP) agents.**
@@ -50,7 +50,7 @@ The easiest way to install MCP-Shield is to download the standalone executable f
 
 Alternatively, if you have Node.js installed, you can use npm:
 ```bash
-npm install -g mcp-shield
+npm install -g @jrooig/mcpshield
 ```
 
 *(For local development, run `npm install` and `npm run build:bin` in the source repository to generate the executables in the `bin/` folder).*
