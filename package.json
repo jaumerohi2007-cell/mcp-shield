@@ -39,6 +39,7 @@
   "files": [
     "dist/**/*.js",
     "dist/**/*.d.ts",
+    "public/**",
     "README.md"
   ],
   "engines": {
