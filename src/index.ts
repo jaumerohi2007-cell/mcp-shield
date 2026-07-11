@@ -19,6 +19,7 @@ import { readFile, realpath, rename, rm, writeFile } from 'node:fs/promises';
 import { homedir } from 'node:os';
 import path from 'node:path';
 import process from 'node:process';
+import { fileURLToPath } from 'node:url';
 
 import { Firewall, screenClientLine } from './security/firewall.js';
 import { hasSession, runCliLoginFlow } from './enterprise/auth.js';
@@ -54,6 +55,34 @@ function fail(message: string): never {
 
 const USAGE = 'usage: mcp-shield [--port <0-65535>] -- <target-command> [target-args...]  (0 = OS-assigned)';
 const DEFAULT_PORT = 3000;
+
+const HELP = `MCP-Shield — local security proxy for MCP agents.
+
+usage:
+  mcp-shield [--port <0-65535>] -- <target-command> [args...]   run the proxy around a server
+  mcp-shield install [client]                                   auto-wrap detected MCP clients
+  mcp-shield uninstall [client]                                 revert the wrapping
+  mcp-shield register [--local] -- <target-command> [args...]   add a shield entry to Claude config
+  mcp-shield login                                              sign in for Enterprise features
+
+options:
+  -p, --port <0-65535>   dashboard port (default ${DEFAULT_PORT}; 0 = OS-assigned)
+  -h, --help             show this help and exit
+  -v, --version          print the version and exit
+
+clients: claude, cursor, vscode, windsurf, claude-code
+dashboard: http://localhost:<port>   docs: https://github.com/jaumerohi2007-cell/mcp-shield`;
+
+/** Reads the package version at runtime; dist/index.js sits one level under the package root. */
+async function readVersion(): Promise<string> {
+  try {
+    const pkgPath = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'package.json');
+    const parsed = JSON.parse(await readFile(pkgPath, 'utf8')) as { version?: string };
+    return parsed.version ?? 'unknown';
+  } catch {
+    return 'unknown';
+  }
+}
 
 interface CliOptions {
   port: number;
@@ -204,6 +233,22 @@ async function runRegisterCommand(args: string[]): Promise<void> {
 const rawArgs = process.argv.slice(2);
 
 async function main() {
+  // ── `mcp-shield --help` / `--version` ────────────────────────────────────────
+  // Handled before anything else so the most common first commands a user types
+  // just work. Only flags *before* the "--" separator count — everything after
+  // it belongs to the target command (e.g. `mcp-shield -- npx --help`). These go
+  // to stdout (no MCP client is attached in this mode) and exit 0, per CLI norm.
+  const sepIdx = rawArgs.indexOf('--');
+  const preSepArgs = sepIdx === -1 ? rawArgs : rawArgs.slice(0, sepIdx);
+  if (preSepArgs.includes('-h') || preSepArgs.includes('--help')) {
+    process.stdout.write(`${HELP}\n`);
+    process.exit(0);
+  }
+  if (preSepArgs.includes('-v') || preSepArgs.includes('--version')) {
+    process.stdout.write(`${await readVersion()}\n`);
+    process.exit(0);
+  }
+
   // ── `mcp-shield login` ──────────────────────────────────────────────────────
   // Dedicated command: runs the SSO loopback flow, writes ~/.mcp-shield/session.json
   // and exits. No MCP target server is spawned.
