@@ -85,6 +85,15 @@ Genuinely curious where you think the proxy approach breaks down.
 
 (A "OPs 'built' is a stretch" → NO responder; alimentaría el jab.)
 
+### Respuesta preparada para "¿esto no es aquel MCP-Shield de 2025?" (saldrá en HN)
+
+Contexto: riseandignite/mcp-shield (554★, Show HN 134 pts en abr 2025, npm `mcp-shield` sin
+scope) es un ESCÁNER ESTÁTICO de configs/tool descriptions. Sin commits desde el 26-abr-2025.
+
+```text
+Different tool, unfortunate name collision. That MCP-Shield is a static scanner: you run it once and it audits the tool descriptions of your installed MCP servers for poisoning patterns — a good pre-flight check (though it's been unmaintained since April 2025). This one is a runtime proxy: it sits on the stdio wire and enforces policy on every tool call as it happens — block, hold-for-approval, edit arguments, sanitize what comes back. You could honestly run both. Mine is `@jrooig/mcpshield` on npm; the unscoped `mcp-shield` package is theirs.
+```
+
 ---
 
 ## 3. X (Twitter)
