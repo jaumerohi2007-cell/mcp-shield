@@ -4,6 +4,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 > **Zero-trust security proxy, prompt injection sanitizer, and interactive runtime firewall for Model Context Protocol (MCP) agents.**
+>
+> 🌐 **[mcp-shield.dev](https://mcp-shield.dev/)** · [npm](https://www.npmjs.com/package/@jrooig/mcpshield)
 
 MCP-Shield sits as an inline security layer between your MCP clients (like Claude Code, Cursor, or VS Code Copilot) and target MCP servers (like terminal execution, database readers, or filesystem writers). It intercepts JSON-RPC communications to monitor, block, or hold tools/calls for manual developer approval.
 

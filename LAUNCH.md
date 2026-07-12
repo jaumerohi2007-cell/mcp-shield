@@ -129,6 +129,7 @@ npm install -g @jrooig/mcpshield
 
 Works with Claude Desktop, Cursor, VS Code, Windsurf, Codex CLI & Claude Code.
 
+Site: https://mcp-shield.dev
 Repo (a ⭐ helps a ton): https://github.com/jaumerohi2007-cell/mcp-shield
 ```
 
