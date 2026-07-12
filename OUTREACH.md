@@ -35,7 +35,7 @@ Consecuencias para republicar:
 |-------|--------|-------|--------------|-------|
 | Hacker News (Show HN) | 🗓️ Agendado | **Mar 14 jul ~15:00 UTC / 17:00 ES** | — | Estar disponible 3-4h para responder |
 | Reddit r/selfhosted | ⬜ Pendiente | — | — | Revisar reglas de self-promo del sub |
-| Reddit r/node | ⬜ Pendiente | — | — | |
+| Reddit r/node | ⚠️ Publicado con ERROR | ~6 jul | reddit.com/r/node/comments/1un3sxx | Install ROTO (`npm i -g mcp-shield` = competidor). 5.1K views, 3 up. Top comment escéptico (tj-horner). Decisión 12 jul: EDITAR install+copy y responder |
 | Reddit r/ArtificialIntelligence | ⬜ Pendiente | — | — | |
 | X / Twitter (hilo) | ⬜ Pendiente | — | — | Hilo 5 tweets + captura/vídeo en tweet 1 |
 | Vídeo demo (~90s) | ⬜ Por grabar | — | — | Guion en LAUNCH.md §4. Para X y hero del README |
@@ -144,6 +144,14 @@ Nada de copiar-pegar genérico a Tier 1 — se nota y quema el contacto.
     en producción: install limpio de `@jrooig/mcpshield@0.1.4`, `install` idempotente,
     `uninstall` restaura exacto (round-trip ✅). Commits `e820a46` (fix+tests) y `62fdf85`
     (docs) + tag `v0.1.4` en local (⚠️ falta `git push` al repo de GitHub).
+- **Soporte Codex CLI añadido** (pregunta del padre del user): `mcp-shield install codex` +
+  auto-detect. Codex usa TOML (`~/.codex/config.toml`, `$CODEX_HOME`) → editor quirúrgico por
+  líneas que preserva comentarios/keys ajenas byte a byte. Verificado contra tarball npm
+  (round-trip exacto). Suite 88/88. Commit `bb92761`, tag `v0.1.5`. ⏳ **v0.1.5 SIN publicar
+  en npm** (necesita token nuevo) y commit sin pushear.
+- **Landing:** añadida línea "Claude Code ready — run: mcp-shield install claude-code" al
+  terminal del hero (mcp-shield-landing/src/components/Hero.tsx) — Claude Code no salía
+  porque el barrido auto solo muestra los autoDetect; decisión: línea explícita honesta.
 - Pendiente para el martes: **grabar el vídeo demo** (~90s, LAUNCH.md §4) y postear el Show HN.
 
 **2026-07-11** — Sesión de arranque del outreach:

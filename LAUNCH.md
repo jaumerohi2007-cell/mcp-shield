@@ -59,6 +59,29 @@ Source + README: https://github.com/jaumerohi2007-cell/mcp-shield
 What default rules would you want out of the box? That's the part I most want feedback on.
 ```
 
+### ⚠️ Post en vivo en r/node (soft-launch ~6 jul) — EDITAR
+
+El post real (reddit.com/r/node/comments/1un3sxx) se publicó antes del fix de nombre y dice
+`npm install -g mcp-shield` → **instala el paquete del competidor**. Editar YA a
+`@jrooig/mcpshield`, quitar "glassmorphic", y liderar con cross-client + saneo de OUTPUTS.
+Usar el texto de arriba como base.
+
+### Respuesta al top comment (tj-horner: "es built-in en Claude Code / hooks / injection ya bajó")
+
+```text
+Fair points, thanks. The permission/auto-mode config in Claude Code is real and does overlap with the call-gating side of this — no argument there for a Claude-Code-only setup.
+
+Two things I'd push back on. First, that config only covers Claude Code. The reason this is a proxy at the MCP transport layer is to get one policy that applies the same across Cursor, Windsurf, Claude Desktop, VS Code, etc. — including clients that don't ship an equivalent deterministic permission system. Configure once, not per-client.
+
+Second, the other half isn't on the call side, it's on the response side: it also scans tool OUTPUTS (web pages, file contents, API responses coming back from servers) and neutralizes injection phrasing before it hits the model's context. Permission rules gate what the agent is allowed to call; they don't sanitize the external data that comes back.
+
+On "prompt injection risk has gone way down" — agreed it's better, but I don't think it's solved. Model-side distrust of non-user input is a mitigation, not a guarantee, and for anything with shell/fs/secret blast radius I'd still want a deterministic layer that doesn't depend on the model deciding to behave. Defense in depth.
+
+Genuinely curious where you think the proxy approach breaks down.
+```
+
+(A "OPs 'built' is a stretch" → NO responder; alimentaría el jab.)
+
 ---
 
 ## 3. X (Twitter)
