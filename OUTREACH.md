@@ -6,7 +6,7 @@
 
 | Dato | Valor correcto |
 |------|----------------|
-| Paquete npm | `@jrooig/mcpshield` (publicado: **v0.1.3**; ⏳ **v0.1.4 lista en repo, por publicar** — arregla `uninstall`) |
+| Paquete npm | `@jrooig/mcpshield` (**v0.1.4**, latest — publicada 2026-07-12, arregla `install`/`uninstall` en npm) |
 | Install | `npm install -g @jrooig/mcpshield` |
 | Comando CLI (bin) | `mcp-shield ...` (soporta `--help`/`-h` y `--version`/`-v`) |
 | Repo GitHub | https://github.com/jaumerohi2007-cell/mcp-shield |
@@ -140,10 +140,11 @@ Nada de copiar-pegar genérico a Tier 1 — se nota y quema el contacto.
     restaura exacto, round-trip OK, remote-http intacto.
   - Añadidos 2 tests de regresión en `tests/install.test.mjs` (entrada envuelta con ruta
     estilo npm sin guion). Probado que FALLAN sin el fix y PASAN con él. Suite: **83/83**.
-  - **Versión subida a v0.1.4** (package.json). ⏳ **PENDIENTE: republicar en npm** (flujo
-    de security key / Automation token) ANTES del martes — quien instale hoy recibe la
-    v0.1.3 con `uninstall` roto.
-- Pendiente para el martes: **republicar v0.1.4**, grabar el vídeo demo (~90s, LAUNCH.md §4) y postear.
+  - **v0.1.4 PUBLICADA en npm** (2026-07-12, Automation token + `.npmrc` temporal). Verificado
+    en producción: install limpio de `@jrooig/mcpshield@0.1.4`, `install` idempotente,
+    `uninstall` restaura exacto (round-trip ✅). Commits `e820a46` (fix+tests) y `62fdf85`
+    (docs) + tag `v0.1.4` en local (⚠️ falta `git push` al repo de GitHub).
+- Pendiente para el martes: **grabar el vídeo demo** (~90s, LAUNCH.md §4) y postear el Show HN.
 
 **2026-07-11** — Sesión de arranque del outreach:
 - Fix crítico: todas las plantillas y el README apuntaban a `mcp-shield` (paquete de otra
