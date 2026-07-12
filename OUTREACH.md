@@ -6,7 +6,7 @@
 
 | Dato | Valor correcto |
 |------|----------------|
-| Paquete npm | `@jrooig/mcpshield` (**v0.1.4**, latest — publicada 2026-07-12, arregla `install`/`uninstall` en npm) |
+| Paquete npm | `@jrooig/mcpshield` (**v0.1.5**, latest — publicada 2026-07-12, añade soporte Codex CLI) |
 | Install | `npm install -g @jrooig/mcpshield` |
 | Comando CLI (bin) | `mcp-shield ...` (soporta `--help`/`-h` y `--version`/`-v`) |
 | Repo GitHub | https://github.com/jaumerohi2007-cell/mcp-shield |
@@ -147,8 +147,9 @@ Nada de copiar-pegar genérico a Tier 1 — se nota y quema el contacto.
 - **Soporte Codex CLI añadido** (pregunta del padre del user): `mcp-shield install codex` +
   auto-detect. Codex usa TOML (`~/.codex/config.toml`, `$CODEX_HOME`) → editor quirúrgico por
   líneas que preserva comentarios/keys ajenas byte a byte. Verificado contra tarball npm
-  (round-trip exacto). Suite 88/88. Commit `bb92761`, tag `v0.1.5`. ⏳ **v0.1.5 SIN publicar
-  en npm** (necesita token nuevo) y commit sin pushear.
+  (round-trip exacto). Suite 88/88. Commit `bb92761`, tag `v0.1.5`. **v0.1.5 PUBLICADA en npm
+  y pusheada a GitHub** (2026-07-12 tarde); verificada en producción: `--help` lista codex,
+  round-trip byte a byte sobre install limpio del registry. Token revocado tras publicar.
 - **Landing:** añadida línea "Claude Code ready — run: mcp-shield install claude-code" al
   terminal del hero (mcp-shield-landing/src/components/Hero.tsx) — Claude Code no salía
   porque el barrido auto solo muestra los autoDetect; decisión: línea explícita honesta.
