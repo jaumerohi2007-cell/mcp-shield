@@ -415,3 +415,54 @@ test('uninstall with no argument restores every detected client', async () => {
   assert.deepEqual(JSON.parse(await readFile(cursorConfig(home), 'utf8')), original);
   assert.deepEqual(JSON.parse(await readFile(windsurfConfig(home), 'utf8')), original);
 });
+
+// ---------------------------------------------------------------------------
+// Regression: the PUBLISHED npm package installs under `@jrooig/mcpshield`
+// (no hyphen), but the whole test suite runs `dist/index.js` from a checkout
+// dir named `mcp-shield` (hyphen). A detector keyed only on the hyphenated
+// name recognizes wrapped entries in-repo yet silently fails on real npm
+// installs: `install` re-wraps (double proxy) and `uninstall` restores
+// nothing. These tests pin detection of a wrapped entry regardless of which
+// package-dir spelling produced it, so they'd catch that path dependence
+// even though the running entry itself lives under the hyphenated dir.
+// A realistic npm-style wrap: node <abs .../@jrooig/mcpshield/dist/index.js> -- <orig>
+const npmWrapped = (command, args = []) => ({
+  command: process.execPath,
+  args: [
+    path.join(tmpdir(), 'g', 'lib', 'node_modules', '@jrooig', 'mcpshield', 'dist', 'index.js'),
+    '--',
+    command,
+    ...args,
+  ],
+});
+
+test('install treats an npm-installed (@jrooig/mcpshield, no hyphen) wrap as already protected', async () => {
+  const home = await freshDir();
+  await writeConfig(cursorConfig(home), {
+    mcpServers: { fs: npmWrapped('npx', ['-y', '@modelcontextprotocol/server-filesystem', '/tmp']) },
+  });
+
+  const { code, stderr } = await run(['install', 'cursor'], { home });
+  assert.equal(code, 0, `stderr was: ${stderr}`);
+  assert.match(stderr, /already protected/);
+  // Must NOT double-wrap: the entry is left exactly as it was.
+  assert.deepEqual(
+    JSON.parse(await readFile(cursorConfig(home), 'utf8')).mcpServers.fs,
+    npmWrapped('npx', ['-y', '@modelcontextprotocol/server-filesystem', '/tmp']),
+  );
+});
+
+test('uninstall unwraps an npm-installed (@jrooig/mcpshield, no hyphen) wrap back to the original', async () => {
+  const home = await freshDir();
+  await writeConfig(cursorConfig(home), {
+    mcpServers: { fs: npmWrapped('npx', ['x']) },
+  });
+
+  const { code, stderr } = await run(['uninstall', 'cursor'], { home });
+  assert.equal(code, 0, `stderr was: ${stderr}`);
+  assert.match(stderr, /UNINSTALLED from 1 server\(s\)/);
+  assert.deepEqual(
+    JSON.parse(await readFile(cursorConfig(home), 'utf8')).mcpServers.fs,
+    { command: 'npx', args: ['x'] },
+  );
+});

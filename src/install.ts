@@ -140,9 +140,14 @@ export function shieldInvocation(): string[] {
  * loose substring test would make `uninstall` mangle an unrelated server
  * whose command merely contains "mcp-shield" (e.g. "mcp-shield-audit").
  * Matches: the bare/legacy name, our pkg binary names, and any path that
- * traverses an "mcp-shield" directory (npm package dir, this repo).
+ * traverses a shield package directory. The published npm package installs
+ * under `@jrooig/mcpshield` (no hyphen), while the source checkout and the
+ * legacy name use `mcp-shield` (hyphen) — both must be recognized, or
+ * `uninstall` silently fails to unwrap real npm installs and `install`
+ * double-wraps them on re-run.
  */
 const SHIELD_BASENAMES = new Set(['mcp-shield', 'mcp-shield-linux', 'mcp-shield-macos', 'mcp-shield-win']);
+const SHIELD_DIR_SEGMENTS = new Set(['mcp-shield', 'mcpshield']);
 
 function invokesShield(value: unknown): boolean {
   if (typeof value !== 'string' || value === '') {
@@ -151,7 +156,7 @@ function invokesShield(value: unknown): boolean {
   const segments = value.split(/[\\/]+/);
   const last = segments[segments.length - 1] ?? '';
   const basename = last.toLowerCase().replace(/\.(exe|cmd|ps1)$/, '');
-  return SHIELD_BASENAMES.has(basename) || segments.includes('mcp-shield');
+  return SHIELD_BASENAMES.has(basename) || segments.some((s) => SHIELD_DIR_SEGMENTS.has(s.toLowerCase()));
 }
 
 function isShieldedEntry(serverConfig: Record<string, any>): boolean {
