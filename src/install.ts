@@ -44,6 +44,8 @@ interface McpClient {
    * absolute paths, no less) must be a deliberate, explicit action, never a
    * side effect of running the sweep from the wrong directory. */
   autoDetect: boolean;
+  /** Config file format. JSON unless stated — Codex uses TOML. */
+  format?: 'toml';
   /** Absolute path of the client's MCP config, or null when the client does
    * not exist on this platform. */
   configPath: () => string | null;
@@ -100,6 +102,15 @@ const CLIENTS: McpClient[] = [
     serversKey: 'mcpServers',
     autoDetect: true,
     configPath: () => path.join(homedir(), '.codeium', 'windsurf', 'mcp_config.json'),
+  },
+  {
+    id: 'codex',
+    name: 'Codex CLI',
+    serversKey: 'mcp_servers',
+    autoDetect: true,
+    format: 'toml',
+    // Codex keeps everything under $CODEX_HOME (default ~/.codex) on every platform.
+    configPath: () => path.join(process.env.CODEX_HOME || path.join(homedir(), '.codex'), 'config.toml'),
   },
   {
     id: 'claude-code',
@@ -226,9 +237,261 @@ function unwrapServers(servers: Record<string, any>): number {
   return modified;
 }
 
+// ---------------------------------------------------------------------------
+// Codex (TOML) support — surgical line edits, never a full-file rewrite
+//
+// Codex's config.toml holds much more than MCP servers (model, approval
+// policy, user comments). Parsing the whole file and re-serializing it would
+// destroy comments and formatting, so instead we locate each
+// [mcp_servers.<name>] section and rewrite ONLY its `command`/`args` lines.
+// Entries whose values we cannot parse cleanly are skipped, mirroring how
+// wrapServers leaves malformed JSON entries for the user to fix.
+// ---------------------------------------------------------------------------
+
+/** Index of the closing quote of the string starting at `start`, or -1.
+ * TOML basic/literal strings are single-line; a newline means malformed. */
+function scanStringEnd(text: string, start: number): number {
+  const quote = text[start];
+  for (let i = start + 1; i < text.length; i++) {
+    const ch = text[i];
+    if (ch === '\n') return -1;
+    if (quote === '"' && ch === '\\') {
+      i++;
+      continue;
+    }
+    if (ch === quote) return i;
+  }
+  return -1;
+}
+
+/** Decode one quoted TOML string token (quotes included). Returns null on
+ * escapes we do not handle (\uXXXX etc.) — the caller skips that entry. */
+function decodeTomlStringToken(token: string): string | null {
+  const quote = token[0];
+  const body = token.slice(1, -1);
+  if (quote === "'") return body;
+  let out = '';
+  for (let i = 0; i < body.length; i++) {
+    const ch = body[i];
+    if (ch !== '\\') {
+      out += ch;
+      continue;
+    }
+    i++;
+    const next = body[i];
+    if (next === 'n') out += '\n';
+    else if (next === 't') out += '\t';
+    else if (next === 'r') out += '\r';
+    else if (next === '"') out += '"';
+    else if (next === '\\') out += '\\';
+    else return null;
+  }
+  return out;
+}
+
+function encodeTomlString(value: string): string {
+  let out = '"';
+  for (const ch of value) {
+    if (ch === '\\') out += '\\\\';
+    else if (ch === '"') out += '\\"';
+    else if (ch === '\n') out += '\\n';
+    else if (ch === '\t') out += '\\t';
+    else if (ch === '\r') out += '\\r';
+    else out += ch;
+  }
+  return `${out}"`;
+}
+
+/** Parse `key = "value"` right-hand side: one string token, then only
+ * whitespace or a comment. */
+function parseTomlStringValue(rest: string): string | null {
+  const text = rest.trim();
+  const first = text[0];
+  if (first !== '"' && first !== "'") return null;
+  const end = scanStringEnd(text, 0);
+  if (end === -1) return null;
+  const tail = text.slice(end + 1).trim();
+  if (tail !== '' && !tail.startsWith('#')) return null;
+  return decodeTomlStringToken(text.slice(0, end + 1));
+}
+
+type TomlArrayScan = { kind: 'ok'; items: string[] } | { kind: 'incomplete' } | { kind: 'invalid' };
+
+/** Scan an array-of-strings value, possibly spanning multiple accumulated
+ * lines. 'incomplete' asks the caller for the next line of the section. */
+function scanTomlStringArray(text: string): TomlArrayScan {
+  let i = 0;
+  while (i < text.length && /\s/.test(text[i] ?? '')) i++;
+  if (text[i] !== '[') return { kind: 'invalid' };
+  i++;
+  const items: string[] = [];
+  let expectValue = true;
+  while (i < text.length) {
+    const ch = text[i] ?? '';
+    if (/\s/.test(ch)) {
+      i++;
+      continue;
+    }
+    if (ch === '#') {
+      while (i < text.length && text[i] !== '\n') i++;
+      continue;
+    }
+    if (ch === ']') {
+      const tail = text.slice(i + 1).trim();
+      if (tail !== '' && !tail.startsWith('#')) return { kind: 'invalid' };
+      return { kind: 'ok', items };
+    }
+    if (ch === ',') {
+      if (expectValue) return { kind: 'invalid' };
+      expectValue = true;
+      i++;
+      continue;
+    }
+    if (ch === '"' || ch === "'") {
+      if (!expectValue) return { kind: 'invalid' };
+      const end = scanStringEnd(text, i);
+      if (end === -1) return { kind: 'incomplete' };
+      const decoded = decodeTomlStringToken(text.slice(i, end + 1));
+      if (decoded === null) return { kind: 'invalid' };
+      items.push(decoded);
+      expectValue = false;
+      i = end + 1;
+      continue;
+    }
+    return { kind: 'invalid' }; // number, table, nested array — not a string array
+  }
+  return { kind: 'incomplete' };
+}
+
+interface TomlEdit {
+  start: number;
+  deleteCount: number;
+  insert: string[];
+}
+
+/** Wrap/unwrap every [mcp_servers.<name>] section in place. Only the
+ * command/args lines of modified entries change; everything else — comments,
+ * env subtables, unrelated keys — is preserved byte for byte. */
+function transformTomlServers(raw: string, mode: Mode): { kind: 'no-servers' } | { kind: 'ok'; text: string; modified: number } {
+  const lines = raw.split('\n');
+  // Direct children only: [mcp_servers.foo] but not [mcp_servers.foo.env].
+  const headerRe = /^\s*\[mcp_servers\.(?:"(?:[^"\\]|\\.)+"|[A-Za-z0-9_-]+)\]\s*(?:#.*)?$/;
+  const anyTableRe = /^\s*\[/;
+  const invocation = shieldInvocation();
+
+  const edits: TomlEdit[] = [];
+  let sawSection = false;
+  let modified = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    if (!headerRe.test(lines[i] ?? '')) continue;
+    sawSection = true;
+    let end = i + 1;
+    while (end < lines.length && !anyTableRe.test(lines[end] ?? '')) end++;
+
+    let commandIdx = -1;
+    let commandIndent = '';
+    let command: string | null = null;
+    let argsIdx = -1;
+    let argsEnd = -1;
+    let argsIndent = '';
+    let args: string[] | null = null;
+    let argsValid = true;
+
+    for (let j = i + 1; j < end; j++) {
+      const line = lines[j] ?? '';
+      const cmdMatch = /^(\s*)command\s*=\s*(.*)$/.exec(line);
+      if (cmdMatch && commandIdx === -1) {
+        commandIdx = j;
+        commandIndent = cmdMatch[1] ?? '';
+        command = parseTomlStringValue(cmdMatch[2] ?? '');
+        continue;
+      }
+      const argsMatch = /^(\s*)args\s*=\s*(.*)$/.exec(line);
+      if (argsMatch && argsIdx === -1) {
+        argsIdx = j;
+        argsIndent = argsMatch[1] ?? '';
+        let acc = argsMatch[2] ?? '';
+        let k = j;
+        let scan = scanTomlStringArray(acc);
+        while (scan.kind === 'incomplete' && k + 1 < end) {
+          k++;
+          acc += `\n${lines[k] ?? ''}`;
+          scan = scanTomlStringArray(acc);
+        }
+        if (scan.kind === 'ok') {
+          args = scan.items;
+          argsEnd = k;
+        } else {
+          argsValid = false;
+        }
+      }
+    }
+
+    i = end - 1;
+    // Unparseable entries are left for the user, like malformed JSON ones.
+    if (commandIdx === -1 || command === null || !argsValid) continue;
+    const currentArgs = args ?? [];
+    const shielded = invokesShield(command) || invokesShield(currentArgs[0]);
+
+    if (mode === 'install') {
+      if (shielded) continue;
+      const newArgs = [...invocation.slice(1), '--', command, ...currentArgs];
+      edits.push({ start: commandIdx, deleteCount: 1, insert: [`${commandIndent}command = ${encodeTomlString(invocation[0] ?? '')}`] });
+      const argsLine = `${argsIdx !== -1 ? argsIndent : commandIndent}args = [${newArgs.map(encodeTomlString).join(', ')}]`;
+      if (argsIdx !== -1) {
+        edits.push({ start: argsIdx, deleteCount: argsEnd - argsIdx + 1, insert: [argsLine] });
+      } else {
+        edits.push({ start: commandIdx + 1, deleteCount: 0, insert: [argsLine] });
+      }
+      modified += 1;
+    } else {
+      if (!shielded) continue;
+      const sep = currentArgs.indexOf('--');
+      if (sep === -1 || currentArgs.length <= sep + 1) continue;
+      const restoredCommand = currentArgs[sep + 1] ?? '';
+      const restoredArgs = currentArgs.slice(sep + 2);
+      edits.push({ start: commandIdx, deleteCount: 1, insert: [`${commandIndent}command = ${encodeTomlString(restoredCommand)}`] });
+      if (argsIdx !== -1) {
+        edits.push({
+          start: argsIdx,
+          deleteCount: argsEnd - argsIdx + 1,
+          insert: restoredArgs.length > 0 ? [`${argsIndent}args = [${restoredArgs.map(encodeTomlString).join(', ')}]`] : [],
+        });
+      }
+      modified += 1;
+    }
+  }
+
+  if (!sawSection) return { kind: 'no-servers' };
+  if (modified === 0) return { kind: 'ok', text: raw, modified: 0 };
+
+  edits.sort((a, b) => b.start - a.start);
+  for (const edit of edits) {
+    lines.splice(edit.start, edit.deleteCount, ...edit.insert);
+  }
+  return { kind: 'ok', text: lines.join('\n'), modified };
+}
+
+async function applyTomlToClient(configPath: string, raw: string, mode: Mode): Promise<ClientOutcome> {
+  const result = transformTomlServers(raw, mode);
+  if (result.kind === 'no-servers') {
+    return { kind: 'no-servers', configPath };
+  }
+  if (result.modified === 0) {
+    return { kind: 'unchanged', configPath };
+  }
+  try {
+    await writeTextAtomic(configPath, result.text);
+  } catch (err) {
+    return { kind: 'error', configPath, reason: err instanceof Error ? err.message : String(err) };
+  }
+  return { kind: 'changed', configPath, count: result.modified };
+}
+
 /** Sibling-temp-file + rename: atomic on POSIX, and realpath first so an
  * intentionally symlinked config keeps pointing at its real target. */
-async function writeConfigAtomic(configPath: string, config: Record<string, unknown>): Promise<void> {
+async function writeTextAtomic(configPath: string, text: string): Promise<void> {
   let destPath = configPath;
   try {
     destPath = await realpath(configPath);
@@ -236,12 +499,16 @@ async function writeConfigAtomic(configPath: string, config: Record<string, unkn
 
   const tmpPath = `${destPath}.${process.pid}.tmp`;
   try {
-    await writeFile(tmpPath, `${JSON.stringify(config, null, 2)}\n`, 'utf8');
+    await writeFile(tmpPath, text, 'utf8');
     await rename(tmpPath, destPath);
   } catch (err) {
     await rm(tmpPath, { force: true }).catch(() => undefined);
     throw new Error(`cannot write ${destPath}: ${err instanceof Error ? err.message : String(err)}`);
   }
+}
+
+async function writeConfigAtomic(configPath: string, config: Record<string, unknown>): Promise<void> {
+  await writeTextAtomic(configPath, `${JSON.stringify(config, null, 2)}\n`);
 }
 
 async function applyToClient(client: McpClient, mode: Mode): Promise<ClientOutcome> {
@@ -258,6 +525,10 @@ async function applyToClient(client: McpClient, mode: Mode): Promise<ClientOutco
       return { kind: 'not-found', configPath };
     }
     return { kind: 'error', configPath, reason: `cannot read ${configPath}: ${err instanceof Error ? err.message : String(err)}` };
+  }
+
+  if (client.format === 'toml') {
+    return applyTomlToClient(configPath, raw, mode);
   }
 
   let parsed: unknown;

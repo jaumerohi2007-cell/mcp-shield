@@ -54,6 +54,9 @@ async function writeConfig(configPath, config) {
 
 async function run(args, { home, cwd = home }) {
   const env = { ...process.env, HOME: home, USERPROFILE: home };
+  // codex resolves $CODEX_HOME before ~/.codex — a value inherited from the
+  // developer's real environment would escape the sandbox.
+  delete env.CODEX_HOME;
   if (process.platform === 'win32') {
     env.APPDATA = path.join(home, 'AppData', 'Roaming');
   }
@@ -190,7 +193,7 @@ test('install with an unknown app lists the supported clients and fails', async 
   const { code, stderr } = await run(['install', 'emacs'], { home });
   assert.notEqual(code, 0);
   assert.match(stderr, /unknown app "emacs"/);
-  assert.match(stderr, /claude, cursor, vscode, windsurf, claude-code/);
+  assert.match(stderr, /claude, cursor, vscode, windsurf, codex, claude-code/);
 });
 
 test('install cursor fails cleanly when the config file does not exist', async () => {
@@ -355,7 +358,7 @@ test('auto-detect with no clients at all fails with a helpful message', async ()
   const { code, stderr } = await run(['install'], { home, cwd });
   assert.notEqual(code, 0);
   assert.match(stderr, /No supported MCP clients found/);
-  assert.match(stderr, /claude, cursor, vscode, windsurf, claude-code/);
+  assert.match(stderr, /claude, cursor, vscode, windsurf, codex, claude-code/);
 });
 
 test('auto-detect still shields healthy clients past a corrupt config, but exits non-zero', async () => {
@@ -465,4 +468,121 @@ test('uninstall unwraps an npm-installed (@jrooig/mcpshield, no hyphen) wrap bac
     JSON.parse(await readFile(cursorConfig(home), 'utf8')).mcpServers.fs,
     { command: 'npx', args: ['x'] },
   );
+});
+
+// ---------------------------------------------------------------------------
+// Codex (TOML) — surgical edits to ~/.codex/config.toml
+// ---------------------------------------------------------------------------
+
+const codexConfig = (home) => path.join(home, '.codex', 'config.toml');
+
+// TOML basic-string encoding as install.ts writes it.
+const tomlStr = (s) => `"${s.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+const tomlArr = (items) => `[${items.map(tomlStr).join(', ')}]`;
+const wrappedTomlArgs = (command, args = []) => tomlArr([entry, '--', command, ...args]);
+
+async function writeCodexConfig(home, text) {
+  await mkdir(path.dirname(codexConfig(home)), { recursive: true });
+  await writeFile(codexConfig(home), text);
+}
+
+test('install codex wraps [mcp_servers.*] and preserves comments, unrelated keys and env subtables', async () => {
+  const home = await freshDir();
+  await writeCodexConfig(home, `# my codex setup
+model = "o3"
+
+[mcp_servers.everything]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-everything"]
+startup_timeout_sec = 20
+
+[mcp_servers.everything.env]
+FOO = "bar"
+
+[history]
+persistence = "none"
+`);
+
+  const { code, stderr } = await run(['install', 'codex'], { home });
+  assert.equal(code, 0, `stderr was: ${stderr}`);
+  assert.match(stderr, /Successfully shielded 1 server\(s\) in codex/);
+
+  const text = await readFile(codexConfig(home), 'utf8');
+  assert.ok(text.includes(`command = ${tomlStr(process.execPath)}`), `wrapped command missing in:\n${text}`);
+  assert.ok(
+    text.includes(`args = ${wrappedTomlArgs('npx', ['-y', '@modelcontextprotocol/server-everything'])}`),
+    `wrapped args missing in:\n${text}`,
+  );
+  // Everything that is not the wrapped entry's command/args must survive.
+  for (const kept of ['# my codex setup', 'model = "o3"', 'startup_timeout_sec = 20', '[mcp_servers.everything.env]', 'FOO = "bar"', '[history]', 'persistence = "none"']) {
+    assert.ok(text.includes(kept), `expected "${kept}" to be preserved in:\n${text}`);
+  }
+});
+
+test('install codex handles multi-line args arrays and servers without args', async () => {
+  const home = await freshDir();
+  await writeCodexConfig(home, `[mcp_servers.files]
+command = "node"
+args = [
+  "server.js",
+  "--root", # workspace root
+  "/tmp",
+]
+
+[mcp_servers.bare]
+command = "my-server"
+`);
+
+  const { code, stderr } = await run(['install', 'codex'], { home });
+  assert.equal(code, 0, `stderr was: ${stderr}`);
+  assert.match(stderr, /Successfully shielded 2 server\(s\) in codex/);
+
+  const text = await readFile(codexConfig(home), 'utf8');
+  assert.ok(text.includes(`args = ${wrappedTomlArgs('node', ['server.js', '--root', '/tmp'])}`), `files args wrong in:\n${text}`);
+  assert.ok(text.includes(`args = ${wrappedTomlArgs('my-server')}`), `bare args wrong in:\n${text}`);
+});
+
+test('install codex is idempotent and uninstall restores the original file byte for byte', async () => {
+  const home = await freshDir();
+  const original = `[mcp_servers.everything]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-everything"]
+`;
+  await writeCodexConfig(home, original);
+
+  await run(['install', 'codex'], { home });
+  const afterFirst = await readFile(codexConfig(home), 'utf8');
+  const second = await run(['install', 'codex'], { home });
+  assert.equal(second.code, 0);
+  assert.match(second.stderr, /already protected/);
+  assert.equal(await readFile(codexConfig(home), 'utf8'), afterFirst);
+
+  const { code, stderr } = await run(['uninstall', 'codex'], { home });
+  assert.equal(code, 0, `stderr was: ${stderr}`);
+  assert.match(stderr, /UNINSTALLED from 1 server\(s\)/);
+  assert.equal(await readFile(codexConfig(home), 'utf8'), original);
+});
+
+test('install codex fails when config.toml has no [mcp_servers.*] sections', async () => {
+  const home = await freshDir();
+  await writeCodexConfig(home, 'model = "o3"\n');
+
+  const { code, stderr } = await run(['install', 'codex'], { home });
+  assert.notEqual(code, 0);
+  assert.match(stderr, /No "mcp_servers" found/);
+});
+
+test('the no-argument sweep detects codex alongside the JSON clients', async () => {
+  const home = await freshDir();
+  const cwd = await freshDir();
+  await writeConfig(cursorConfig(home), { mcpServers: { fs: { command: 'npx', args: ['x'] } } });
+  await writeCodexConfig(home, `[mcp_servers.everything]
+command = "npx"
+args = ["-y", "@modelcontextprotocol/server-everything"]
+`);
+
+  const { code, stderr } = await run(['install'], { home, cwd });
+  assert.equal(code, 0, `stderr was: ${stderr}`);
+  assert.match(stderr, /✓ Detected Cursor — shielded 1 server\(s\)/);
+  assert.match(stderr, /✓ Detected Codex CLI — shielded 1 server\(s\)/);
 });

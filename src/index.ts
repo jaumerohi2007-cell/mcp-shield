@@ -70,7 +70,7 @@ options:
   -h, --help             show this help and exit
   -v, --version          print the version and exit
 
-clients: claude, cursor, vscode, windsurf, claude-code
+clients: claude, cursor, vscode, windsurf, codex, claude-code
 dashboard: http://localhost:<port>   docs: https://github.com/jaumerohi2007-cell/mcp-shield`;
 
 /** Reads the package version at runtime; dist/index.js sits one level under the package root. */

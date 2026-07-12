@@ -72,7 +72,7 @@ mcp-shield install
 #   ...
 ```
 
-Supported clients: **Claude Desktop** (`claude`), **Cursor** (`cursor`, `~/.cursor/mcp.json`), **VS Code** (`vscode`, native MCP `mcp.json`), **Windsurf** (`windsurf`) and **Claude Code** (`claude-code`, the project's `.mcp.json`). You can also target a single client explicitly:
+Supported clients: **Claude Desktop** (`claude`), **Cursor** (`cursor`, `~/.cursor/mcp.json`), **VS Code** (`vscode`, native MCP `mcp.json`), **Windsurf** (`windsurf`), **Codex CLI** (`codex`, `~/.codex/config.toml` — only the `command`/`args` lines are rewritten, comments and other settings are preserved) and **Claude Code** (`claude-code`, the project's `.mcp.json`). You can also target a single client explicitly:
 
 ```bash
 mcp-shield install cursor
