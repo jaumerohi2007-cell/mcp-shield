@@ -25,6 +25,8 @@ Implementation details HN might care about:
 
 Honest about the threat model: this is defense in depth, not a proof. It's a policy layer on tool calls, so it helps most against injection that tries to run recognizably dangerous commands or exfiltrate over the network. It won't stop an attacker who stays entirely within your allowlisted tools, and the default rules are heuristics you're meant to tune (src/config/rules.ts). Runs 100% locally, no telemetry, no account required.
 
+Yes, some clients ship their own permission prompts (Claude Code's rules are good). The point of doing it at the transport layer is that it's one deterministic policy across every client — Claude Desktop, Cursor, VS Code, Windsurf, Codex CLI, Claude Code — including the ones with no equivalent system, and it also covers what comes *back* from servers, not just what the agent calls.
+
 Install: npm install -g @jrooig/mcpshield   (then `mcp-shield install` to wrap detected clients)
 Repo: https://github.com/jaumerohi2007-cell/mcp-shield
 
@@ -46,6 +48,7 @@ So I built MCP-Shield: a local proxy that sits between your MCP client and any M
 - Blocks destructive commands (rm -rf, mkfs, dd, shutdown...) outright.
 - Holds suspicious ones (curl/wget/ssh, shell chaining, writes outside your workspace) in a local dashboard where you approve, deny, or edit the arguments.
 - Sanitizes tool OUTPUTS (NFKC normalization) to catch Unicode-obfuscated injection before it reaches the model.
+- One policy across clients: Claude Desktop, Cursor, VS Code, Windsurf and Codex CLI auto-detected, Claude Code on demand — no per-client config.
 - Runs 100% on localhost. No telemetry, no account.
 
 Honest scope: it's defense in depth, not a silver bullet. It helps most against injection that tries recognizably dangerous commands or network exfiltration; it won't stop an attacker who stays within your allowlisted tools, and the default rules are heuristics you tune.
@@ -123,6 +126,8 @@ It's defense in depth, not a silver bullet: it won't stop an attacker who stays 
 Open-source, installs in seconds:
 
 npm install -g @jrooig/mcpshield
+
+Works with Claude Desktop, Cursor, VS Code, Windsurf, Codex CLI & Claude Code.
 
 Repo (a ⭐ helps a ton): https://github.com/jaumerohi2007-cell/mcp-shield
 ```
