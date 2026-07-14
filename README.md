@@ -26,6 +26,14 @@ If your agent reads a webpage, opens a file, or pulls a repository containing ma
 
 ---
 
+## 🔒 Privacy — Local-First, No Telemetry by Default
+
+MCP-Shield runs **100% on your machine**. The default `npm install -g @jrooig/mcpshield` build sends **nothing to any server** — no telemetry, no analytics, no account required. The dashboard is served on `localhost` and your traffic never leaves your box.
+
+The optional telemetry under `src/enterprise/` is **inert unless you explicitly run `mcp-shield login`** and complete an Enterprise SSO flow (which writes `~/.mcp-shield/session.json`). With no session file, telemetry never initializes and every record call is a no-op — verifiable in `src/enterprise/apiClient.ts` (`loadSession` throws) and `src/index.ts` (`telemetry` stays `null`).
+
+---
+
 ## 🚀 How it Works
 
 ```text

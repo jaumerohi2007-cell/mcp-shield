@@ -94,6 +94,17 @@ scope) es un ESCÁNER ESTÁTICO de configs/tool descriptions. Sin commits desde 
 Different tool, unfortunate name collision. That MCP-Shield is a static scanner: you run it once and it audits the tool descriptions of your installed MCP servers for poisoning patterns — a good pre-flight check (though it's been unmaintained since April 2025). This one is a runtime proxy: it sits on the stdio wire and enforces policy on every tool call as it happens — block, hold-for-approval, edit arguments, sanitize what comes back. You could honestly run both. Mine is `@jrooig/mcpshield` on npm; the unscoped `mcp-shield` package is theirs.
 ```
 
+### Respuesta preparada para "pero tenéis telemetry.ts en el repo / ¿'no telemetry' es cierto?" (HN)
+
+Contexto verificado (14 jul): la telemetría está 100% apagada por defecto. `telemetry`
+queda `null` salvo que corras `mcp-shield login` (SSO Enterprise) y se escriba
+`~/.mcp-shield/session.json`. Sin ese fichero, `loadSession()` lanza → `TelemetryManager`
+no arranca → cada `record()` es no-op. Cero eventos, cero red.
+
+```text
+Good catch to look — there's an enterprise/ dir, so let me be precise about what actually runs. Telemetry is null unless you explicitly run `mcp-shield login` and complete an SSO flow that writes ~/.mcp-shield/session.json. With no session file, TelemetryManager.create() throws, the proxy prints a one-line "telemetry unavailable" to stderr, and every record() call is a no-op — zero events, zero network calls to any backend. So the plain `npm install -g @jrooig/mcpshield` path from this post phones home to nobody; the telemetry code is the opt-in paid Enterprise tier. You can trace it yourself: src/enterprise/apiClient.ts (loadSession) and src/index.ts (telemetry stays null). Fair point that this should be spelled out in the README — I'll add it.
+```
+
 ---
 
 ## 3. X (Twitter)

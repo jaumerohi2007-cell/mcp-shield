@@ -7,3 +7,7 @@ yarn-debug.log*
 yarn-error.log*
 .DS_Store
 *.local
+
+# video render toolkit (playwright+chromium+debs) — local only
+demo/.videokit/
+demo/*.mp4
