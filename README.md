@@ -3,7 +3,9 @@
 [![NPM Version](https://img.shields.io/npm/v/@jrooig/mcpshield.svg)](https://www.npmjs.com/package/@jrooig/mcpshield)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-> **Zero-trust security proxy, prompt injection sanitizer, and interactive runtime firewall for Model Context Protocol (MCP) agents.**
+> **MCP-Shield is a local firewall for AI agents.** It sits inline between your MCP client (Claude Code, Cursor, VS Code, and others) and the tools it can access, inspecting every tool call in real time and stopping dangerous actions—such as shell commands, file deletion, or secret exfiltration—until you choose to approve, deny, or edit them.
+>
+> **This isn't a one-time MCP server scanner.** It's a live firewall that monitors every tool invocation as it happens, giving you control before any action reaches your system.
 >
 > 🌐 **[mcp-shield.dev](https://mcp-shield.dev/)** · [npm](https://www.npmjs.com/package/@jrooig/mcpshield)
 
