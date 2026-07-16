@@ -3,7 +3,7 @@
   "publishConfig": {
     "access": "public"
   },
-  "version": "0.1.5",
+  "version": "0.1.6",
   "description": "A local firewall for AI agents: pauses dangerous MCP tool calls (shell, file deletes, secret exfiltration) for your approval before they run — live in the connection, 100% on your machine.",
   "type": "module",
   "main": "dist/index.js",
